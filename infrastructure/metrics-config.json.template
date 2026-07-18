@@ -1,0 +1,68 @@
+{
+  "IoT_Metadata": [
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "DEVICE" },
+          "ID": { "N": "1" },
+          "Name": { "S": "Sump Pump Pi" },
+          "Location": { "S": "Basement" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "DEVICE" },
+          "ID": { "N": "2" },
+          "Name": { "S": "Room Monitor" },
+          "Location": { "S": "Bedroom" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "1" },
+          "Name": { "S": "Water Level" },
+          "Unit": { "S": "cm" },
+          "ChartType": { "S": "XYLineChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "2" },
+          "Name": { "S": "Motion Count" },
+          "Unit": { "S": "triggers/min" },
+          "ChartType": { "S": "BarChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "3" },
+          "Name": { "S": "Temperature" },
+          "Unit": { "S": "°C" },
+          "ChartType": { "S": "XYLineChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "4" },
+          "Name": { "S": "Lighting" },
+          "Unit": { "S": "Lux" },
+          "ChartType": { "S": "XYLineChart" }
+        }
+      }
+    }
+  ]
+}

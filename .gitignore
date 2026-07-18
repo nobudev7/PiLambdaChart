@@ -28,3 +28,12 @@ replay_pid*
 
 # IntelliJ
 .idea/
+
+# Terraform
+.terraform
+*.tfvars
+*.lock.hcl
+*.tfstate
+
+# Infrastructure
+metrics-config.json

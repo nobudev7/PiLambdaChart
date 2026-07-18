@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# terraform.tfvars.example
+#
+# Copy this file to terraform.tfvars and fill in your values before running
+# `terraform apply`. The terraform.tfvars file is gitignored by default to
+# prevent accidental exposure of environment-specific settings.
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # then edit terraform.tfvars with your values
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── AWS Deployment ────────────────────────────────────────────────────────────
+aws_region = "us-east-1"
+
+# ── Resource Naming ───────────────────────────────────────────────────────────
+project_name         = "pilambdachart"
+telemetry_table_name = "IoT_Telemetry"
+metadata_table_name  = "IoT_Metadata"
+
+# ── Feature Flags ─────────────────────────────────────────────────────────────
+enable_point_in_time_recovery = false   # Set to true for staging/prod
+
