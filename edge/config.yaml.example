@@ -1,0 +1,67 @@
+# PiLambdaChart Edge Agent Configuration Example
+# Copy this file to 'config.yaml' and customize it for your specific device:
+#
+#   cp config.yaml.example config.yaml
+#
+# Alternatively, you can override configuration fields via environment variables:
+#   DEVICE_ID=1 AWS_ENABLED=false python src/agent.py
+
+# Unique identifier for this specific physical Raspberry Pi edge device.
+# Can be overridden by setting the DEVICE_ID environment variable.
+device_id: 1
+
+# AWS configuration details for uploading telemetry
+aws:
+  # AWS Region where the DynamoDB table is located.
+  # Can be overridden by setting the AWS_REGION environment variable.
+  region: "us-east-1"
+  
+  # DynamoDB table name for storing telemetry.
+  # Can be overridden by setting the AWS_TELEMETRY_TABLE environment variable.
+  telemetry_table: "IoT_Telemetry"
+  
+  # Set to false to run the agent locally without AWS credentials (logs to stdout).
+  # Can be overridden by setting the AWS_ENABLED environment variable.
+  enabled: false
+
+# List of hardware sensors connected to this device.
+# Comment/uncomment or customize according to the sensors physically attached to this Pi.
+sensors:
+  # Example 1: DHT22 Temperature & Humidity Sensor
+  - type: "dht22"
+    pin: 24
+    poll_interval: 10
+    simulation: true  # Set to false when running on a physical Pi with actual sensor
+    metrics:
+      temperature:
+        metric_id: 1
+      humidity:
+        metric_id: 2
+
+  # Example 2: BH1750 Ambient Light/Lux Sensor
+  - type: "bh1750"
+    poll_interval: 5
+    simulation: true
+    metrics:
+      lux:
+        metric_id: 3
+
+  # Example 3: PIR Motion Sensor (counts triggers per minute)
+  - type: "pir_motion"
+    pin: 23
+    poll_interval: 60
+    simulation: true
+    metrics:
+      motion_count:
+        metric_id: 4
+
+  # Example 4: Ultrasonic Water Level/Depth Sensor
+  - type: "ultrasonic"
+    trig_pin: 18
+    echo_pin: 24
+    hole_depth: 100.0
+    poll_interval: 30
+    simulation: true
+    metrics:
+      water_level:
+        metric_id: 5

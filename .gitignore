@@ -34,6 +34,15 @@ replay_pid*
 *.tfvars
 *.lock.hcl
 *.tfstate
+*.tfstate.backup
 
 # Infrastructure
 metrics-config.json
+edge/config.yaml
+
+# Python environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/

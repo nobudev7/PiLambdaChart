@@ -1,0 +1,10 @@
+# Core dependencies for the Agent and AWS Uploads
+PyYAML>=6.0
+boto3>=1.26.0
+
+# Hardware sensor libraries (optional if running in simulation mode)
+# These will be required on the physical Raspberry Pi device:
+adafruit-circuitpython-dht>=3.7.0
+adafruit-circuitpython-bh1750>=1.0.0
+gpiozero>=1.6.0
+RPi.GPIO>=0.7.1

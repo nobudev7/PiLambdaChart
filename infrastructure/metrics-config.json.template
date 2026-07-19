@@ -5,7 +5,7 @@
         "Item": {
           "EntityType": { "S": "DEVICE" },
           "ID": { "N": "1" },
-          "Name": { "S": "Sump Pump Pi" },
+          "Name": { "S": "Water Level Pi" },
           "Location": { "S": "Basement" }
         }
       }
@@ -15,7 +15,7 @@
         "Item": {
           "EntityType": { "S": "DEVICE" },
           "ID": { "N": "2" },
-          "Name": { "S": "Room Monitor" },
+          "Name": { "S": "Ambient Monitor" },
           "Location": { "S": "Bedroom" }
         }
       }
@@ -25,28 +25,6 @@
         "Item": {
           "EntityType": { "S": "METRIC" },
           "ID": { "N": "1" },
-          "Name": { "S": "Water Level" },
-          "Unit": { "S": "cm" },
-          "ChartType": { "S": "XYLineChart" }
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "EntityType": { "S": "METRIC" },
-          "ID": { "N": "2" },
-          "Name": { "S": "Motion Count" },
-          "Unit": { "S": "triggers/min" },
-          "ChartType": { "S": "BarChart" }
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "EntityType": { "S": "METRIC" },
-          "ID": { "N": "3" },
           "Name": { "S": "Temperature" },
           "Unit": { "S": "°C" },
           "ChartType": { "S": "XYLineChart" }
@@ -57,9 +35,42 @@
       "PutRequest": {
         "Item": {
           "EntityType": { "S": "METRIC" },
-          "ID": { "N": "4" },
-          "Name": { "S": "Lighting" },
+          "ID": { "N": "2" },
+          "Name": { "S": "Humidity" },
+          "Unit": { "S": "%" },
+          "ChartType": { "S": "XYLineChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "3" },
+          "Name": { "S": "Ambient Light" },
           "Unit": { "S": "Lux" },
+          "ChartType": { "S": "XYLineChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "4" },
+          "Name": { "S": "Motion Count" },
+          "Unit": { "S": "triggers/min" },
+          "ChartType": { "S": "BarChart" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "5" },
+          "Name": { "S": "Water Level" },
+          "Unit": { "S": "cm" },
           "ChartType": { "S": "XYLineChart" }
         }
       }

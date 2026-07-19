@@ -84,9 +84,18 @@ After `terraform apply`, the following values are printed and can be referenced 
 | `metadata_table_arn` | ARN — used to scope Lambda IAM read policy |
 
 
-### Import Metadata
-To import initial metadata from a file, use the above-mentioned `metrics-config.json` file, and batch write to the table using `aws` command.
+### Seeding Metadata
 
+The database metadata registry (`IoT_Metadata` table) is automatically populated with default device identities and metric definitions (mapping metric IDs 1 to 5 to temperature, humidity, light, motion, and water level) during the Terraform provisioning process. This is managed by:
+*   [seeding.tf](file:///Users/nobu/Projects/PiLambdaChart/infrastructure/seeding.tf): Uses `aws_dynamodb_table_item` resources to insert seed records directly upon running `terraform apply`.
+
+#### Alternative: Manual Bulk Import
+If you want to manually seed or edit metadata using JSON configurations rather than Terraform state, you can copy the template:
+```bash
+cp metrics-config.json.template metrics-config.json
+# Edit metrics-config.json with custom values
+```
+And load them into DynamoDB using the AWS CLI:
 ```bash
 aws dynamodb batch-write-item --request-items file://metrics-config.json
 ```
