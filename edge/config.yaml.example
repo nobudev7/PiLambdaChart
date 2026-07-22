@@ -32,6 +32,11 @@ sensors:
     pin: 24
     poll_interval: 10
     simulation: true  # Set to false when running on a physical Pi with actual sensor
+    # DHT sensors are electrically noisy and often fail individual reads.
+    # The agent retries up to retry_count times before skipping the poll cycle.
+    # retry_delay_seconds controls the async pause between each attempt.
+    retry_count: 3          # default: 3
+    retry_delay_seconds: 2  # default: 2.0 seconds
     metrics:
       temperature:
         metric_id: 1

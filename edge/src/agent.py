@@ -253,7 +253,16 @@ def main():
         action="store_true",
         help="Dry run mode (logs measurements without uploading to AWS DynamoDB)"
     )
+    parser.add_argument(
+        "--debug", "-v",
+        action="store_true",
+        help="Enable DEBUG-level logging (shows sensor retry attempts, raw reads, etc.)"
+    )
     args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled.")
 
     config_path = args.config
     if not config_path:
