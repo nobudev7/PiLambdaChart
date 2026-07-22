@@ -1,10 +1,19 @@
-# Core dependencies for the Agent and AWS Uploads
+# Core dependencies for the Agent and AWS uploads
 PyYAML>=6.0
 boto3>=1.26.0
 
-# Hardware sensor libraries (optional if running in simulation mode)
-# These will be required on the physical Raspberry Pi device:
+# Hardware sensor libraries (required on a physical Raspberry Pi device)
 adafruit-circuitpython-dht>=3.7.0
 adafruit-circuitpython-bh1750>=1.0.0
+
+# GPIO libraries
+# gpiozero uses these as pin factory backends in priority order: lgpio → RPi.GPIO
+# RPi.GPIO works on Raspberry Pi 3 and Pi 4 (Debian Bullseye and earlier).
 gpiozero>=1.6.0
 RPi.GPIO>=0.7.1
+
+# For Raspberry Pi 5 / Debian Bookworm users:
+# RPi.GPIO is not supported on Pi 5 due to the RP1 peripheral chip.
+# Install the Pi 5 extras file instead:
+#
+#   pip install -r requirements-lgpio.txt

@@ -75,7 +75,7 @@ The agent features automatic hardware fallback. If run on a non-Raspberry Pi mac
    pip install -r requirements.txt
    ```
 
-Note: On non-Raspberry Pi environment, the above command fails to install the RPi.GPIO library, which compiles low-level C code specifically for the Raspberry Pi hardware processor. It cannot be installed on standard laptops or desktops. To test the code, install Mock.GPIO library. 
+   Note: On non-Raspberry Pi environment, the above command fails to install the RPi.GPIO library, which compiles low-level C code specifically for the Raspberry Pi hardware processor. It cannot be installed on standard laptops or desktops. To test the code, install Mock.GPIO library. 
     ```bash
     pip install Mock.GPIO
     ```
@@ -95,33 +95,68 @@ Note: On non-Raspberry Pi environment, the above command fails to install the RP
 ## Production Deployment on Raspberry Pi
 
 1. Clone this repository on your Raspberry Pi.
+If you just want to deploy relevant Python scripts, use `sparse-checkout` capability.
+
+   ```bash
+   git clone --filter=blob:none --no-checkout https://github.com/nobudev7/PiLambdaChart.git
+   cd PiLambdaChart
+   git sparse-checkout init --cone
+   git sparse-checkout set edge
+   git checkout main
+   ```
+
 2. **Create and activate a virtual environment** under the `edge` folder:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv pienv
+   source pienv/bin/activate
    ```
-3. **Install dependencies**:
+    Here, I named venv folder `pienv`, not conventional `.venv` so that it is easier to reference later and visible (not hidden) by default.   
+
+3. **Install dependencies** — choose the correct requirements file for your hardware:
+
+   | Raspberry Pi Model | OS | GPIO Backend | Command                                 |
+   | :--- | :--- | :--- |:----------------------------------------|
+   | Pi 3, Pi 4 | Debian Bullseye or earlier | `RPi.GPIO` | `pip install -r requirements.txt`       |
+   | Pi 5 | Debian Bookworm | `lgpio` | `pip install -r requirements-lgpio.txt` |
+
+   **Pi 3 / Pi 4** (uses `RPi.GPIO`):
    ```bash
    pip install -r requirements.txt
    ```
+   **Pi 5** (uses `lgpio` — `RPi.GPIO` is not supported on Pi 5 due to the RP1 chip):
+   ```bash
+   pip install -r requirements-lgpio.txt
+   ```
+
+   > **Note:** `gpiozero` (used by the PIR Motion sensor driver) automatically selects the best available GPIO backend (`lgpio` first, then `RPi.GPIO`). Installing the correct file ensures the right backend is present. A `PinFactoryFallback` warning in the logs is harmless as long as at least one backend is installed.
 4. **Create the configuration file**:
    ```bash
    cp config.yaml.example config.yaml
    ```
-   Edit `config.yaml` to customize the list of active sensors physically attached to this specific Pi. You can also specify settings in `config.yaml` or override them dynamically.
+   Edit `config.yaml` to customize the list of active sensors physically attached to this specific Pi. You can also specify settings in `config.yaml` or override them dynamically. Make sure `simulation` value is set to `false` on a real device.
+
+   ```yaml
+   simulation: false
+   ```
+
 5. Set up AWS credentials via standard environment variables or IAM instance profiles.
 6. **Launch the agent** as a background daemon:
    * **Using Configuration Overrides (Highly Recommended for Fleets)**:
      ```bash
      # Run device 1 with custom region, uploading to AWS
-     DEVICE_ID=1 AWS_REGION=us-east-1 AWS_ENABLED=true nohup .venv/bin/python src/agent.py > agent.log 2>&1 &
+     DEVICE_ID=1 AWS_REGION=us-east-1 AWS_ENABLED=true nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
      ```
      ```bash
      # Run device 2 on another Pi using the same config file
-     DEVICE_ID=2 AWS_REGION=us-east-1 AWS_ENABLED=true nohup .venv/bin/python src/agent.py > agent.log 2>&1 &
+     DEVICE_ID=2 AWS_REGION=us-east-1 AWS_ENABLED=true nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
      ```
    * **Running standard copy**:
      ```bash
-     nohup .venv/bin/python src/agent.py > agent.log 2>&1 &
+     nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
      ```
-
+### Troubleshooting GPIO Warnings
+If you see a `PinFactoryFallback` warning like:
+```
+PinFactoryFallback: Falling back from lgpio: No module named 'lgpio'
+```
+This is **non-fatal** — `gpiozero` simply uses the next available backend (`RPi.GPIO`). The PIR motion sensor will still function correctly. To silence it permanently, install the correct requirements file for your Pi model as described in step 3 above.

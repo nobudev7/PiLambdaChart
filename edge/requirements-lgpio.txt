@@ -1,0 +1,13 @@
+# Raspberry Pi 5 / Debian Bookworm GPIO dependencies
+# Use this file instead of requirements.txt on a Raspberry Pi 5:
+#
+#   pip install -r requirements-lgpio.txt
+#
+# RPi.GPIO is NOT supported on Pi 5 (uses the RP1 peripheral chip).
+# lgpio is the recommended GPIO backend for gpiozero on Pi 5 / Bookworm.
+
+# Include all base dependencies
+-r requirements.txt
+
+# Override: replace RPi.GPIO with lgpio for Pi 5 compatibility
+lgpio>=0.0.0.2
