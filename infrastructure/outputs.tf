@@ -17,3 +17,13 @@ output "metadata_table_arn" {
   description = "ARN of the DynamoDB metadata registry table."
   value       = aws_dynamodb_table.iot_metadata.arn
 }
+
+output "client_access_key_id" {
+  value     = aws_iam_access_key.client_key.id
+  sensitive = false
+}
+
+output "client_secret_access_key" {
+  value     = aws_iam_access_key.client_key.secret
+  sensitive = true # Keeps the secret concealed from accidental stdout prints
+}
