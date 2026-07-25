@@ -27,3 +27,18 @@ output "client_secret_access_key" {
   value     = aws_iam_access_key.client_key.secret
   sensitive = true # Keeps the secret concealed from accidental stdout prints
 }
+
+output "chart_bucket_name" {
+  description = "Name of the S3 bucket used for chart PNG output and file-list.json."
+  value       = aws_s3_bucket.charts.bucket
+}
+
+output "chart_bucket_arn" {
+  description = "ARN of the S3 chart bucket. Use in Lambda execution role policies."
+  value       = aws_s3_bucket.charts.arn
+}
+
+output "lambda_exec_role_arn" {
+  description = "ARN of the Lambda execution IAM role. Assign this as the Lambda function's execution role."
+  value       = aws_iam_role.lambda_exec_role.arn
+}

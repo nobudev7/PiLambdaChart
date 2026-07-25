@@ -28,3 +28,9 @@ variable "enable_point_in_time_recovery" {
   default     = false
 }
 
+variable "chart_bucket_name" {
+  description = "Name of the S3 bucket where the Lambda uploads chart PNG images and file-list.json."
+  type        = string
+  default     = "pilambdachart-charts"
+}
+
