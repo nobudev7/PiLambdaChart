@@ -24,6 +24,13 @@ aws:
   # Can be overridden by setting the AWS_ENABLED environment variable.
   enabled: false
 
+# Logging configuration
+logging:
+  # When true (default), each successful AWS upload emits a concise summary line:
+  #   [TELEMETRY] Device=1 Metric=3 Value=342.1 @ 2026-07-25T18:30:00Z
+  # Set to false to suppress these lines (e.g. in high-frequency deployments).
+  telemetry_summary: true
+
 # List of hardware sensors connected to this device.
 # Comment/uncomment or customize according to the sensors physically attached to this Pi.
 sensors:

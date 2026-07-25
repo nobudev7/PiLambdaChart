@@ -76,7 +76,11 @@ class IoTAgent:
         self.device_id = self.config.get("device_id")
         if not self.device_id:
             raise ValueError("Configuration missing required field: 'device_id'")
-        
+
+        # Configurable telemetry summary logging (default: enabled)
+        logging_cfg = self.config.get("logging", {})
+        self.telemetry_summary_enabled = logging_cfg.get("telemetry_summary", True)
+
         logger.info(f"Loaded configuration for Device ID: {self.device_id}")
 
     def setup_components(self):
@@ -93,6 +97,11 @@ class IoTAgent:
 
         self.uploader = DynamoDbUploader(region=region, table_name=table_name, enabled=aws_enabled)
         self.uploader.setup()
+
+        if self.telemetry_summary_enabled:
+            logger.info("Telemetry summary logging is ENABLED. Each upload will emit a summary line.")
+        else:
+            logger.info("Telemetry summary logging is DISABLED (set logging.telemetry_summary: true in config to enable).")
 
         sensors_list = self.config.get("sensors", [])
         for sensor_cfg in sensors_list:
@@ -176,6 +185,15 @@ class IoTAgent:
                 
                 # Upload current data point
                 success = await self.uploader.upload(data_point)
+
+                if success and self.telemetry_summary_enabled:
+                    ts = data_point["timestamp"].strftime("%Y-%m-%dT%H:%M:%SZ")
+                    logger.info(
+                        f"[TELEMETRY] Device={data_point['device_id']} "
+                        f"Metric={data_point['metric_id']} "
+                        f"Value={data_point['value']:.4g} "
+                        f"@ {ts}"
+                    )
                 
                 if not success:
                     # Push back to retry buffer if upload failed (e.g. offline)
