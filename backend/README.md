@@ -9,6 +9,7 @@ This folder contains the backend resources for PiLambdaChart, including the Java
     *   `TelemetryData.java`: Data model for generic timestamped numeric telemetry.
     *   `ChartGenerator.java`: JFreeChart compilation logic using a custom premium slate-dark style dashboard design.
     *   `ChartGeneratorHandler.java`: AWS Lambda handler managing input event parsing, metadata lookups, UTC timezone bounds calculations, S3 uploads, and `file-list.json` tree catalog updates.
+    *   `ChartGeneratorCLI.java`: Command-line tool to fetch real DynamoDB telemetry and render chart PNGs locally (no S3 required).
 
 ## Compilation and Packaging
 
@@ -50,6 +51,85 @@ The Lambda function parses the following input event keys:
 *   `metric_id` / `metric` (Integer, default `1`): The numeric metric ID partition key.
 *   `timezone` / `tz` (String, default `America/New_York`): The timezone context used for converting start/end daily boundaries to UTC and adjusting points.
 *   `date` (String, optional): Specific date in `YYYY-MM-DD` format. Alternatively, set `"target": "yesterday"` to fetch yesterday's readings relative to the target timezone's today. Defaults to today's date if omitted.
+
+---
+
+## Chart Generator CLI
+
+[`ChartGeneratorCLI.java`](lambda/src/main/java/com/nobudev7/ChartGeneratorCLI.java) is a local developer tool that queries real DynamoDB telemetry and renders chart PNGs directly to the local filesystem — no S3 bucket or Lambda invocation required.
+
+Useful for:
+*   Verifying that telemetry data was correctly uploaded by the edge agent.
+*   Inspecting chart output before deploying the Lambda.
+*   Generating charts for arbitrary historical dates and device/metric combinations.
+
+### Running the CLI
+
+```bash
+cd lambda/
+mvn compile exec:java -Dexec.args="<options>"
+```
+
+Credentials and region are resolved automatically by the AWS SDK (env vars → `~/.aws/credentials` → `~/.aws/config`).
+
+### Options
+
+| Flag | Default | Description |
+|:---|:---|:---|
+| `-d`, `--device` | **required** | Device ID(s). Comma-separated or repeated (`-d 1,2` or `-d 1 -d 2`) |
+| `-m`, `--metric` | **required** | Metric ID(s). Comma-separated or repeated |
+| `--date` | yesterday | Single target date in `YYYY-MM-DD` format |
+| `--dates` | — | Multiple dates, comma-separated |
+| `--tz` | `America/New_York` | Timezone for local-day boundary calculation |
+| `-o`, `--output` | `../../frontend/public/output` | Output directory (relative to `backend/lambda/` where `mvn` runs) |
+| `--table` | `IoT_Telemetry` | DynamoDB table name (or set `TELEMETRY_TABLE_NAME` env var) |
+| `--chart-type` | auto by metric | Force `XYLineChart` or `XYAreaChart` for all charts |
+| `-h`, `--help` | — | Print help and exit |
+
+### Known Metric IDs
+
+| ID | Name | Default Chart Type |
+|:---|:---|:---|
+| 1 | Temperature | `XYLineChart` |
+| 2 | Humidity | `XYLineChart` |
+| 3 | Ambient Light | `XYAreaChart` |
+| 4 | Motion Count | `XYAreaChart` |
+| 5 | Water Level | `XYLineChart` |
+
+### Examples
+
+```bash
+# Yesterday's temperature chart for device 1 (default output: frontend/public/output/)
+mvn compile exec:java -Dexec.args="-d 1 -m 1"
+
+# All five metrics for two devices on a specific date
+mvn compile exec:java -Dexec.args="-d 1,2 -m 1,2,3,4,5 --date 2026-07-25"
+
+# Multiple dates with a custom output directory
+mvn compile exec:java -Dexec.args="-d 1 -m 1,3 --dates 2026-07-24,2026-07-25 -o ~/charts"
+
+# Different timezone
+mvn compile exec:java -Dexec.args="-d 1 -m 1 --tz America/Los_Angeles"
+```
+
+### Output Layout
+
+By default, charts are written into the frontend's public asset directory so the static website can serve them directly:
+
+```
+frontend/public/output/
+  file-list.json                          ← index consumed by the frontend
+  {deviceId}/{metricId}/{year}/{month}/
+    {metricId}-YYYYMMDD.png
+```
+
+Example for Device 1, Metric 1, date 2026-07-25:
+```
+frontend/public/output/1/1/2026/07/1-20260725.png
+frontend/public/output/file-list.json
+```
+
+The key format is identical to the S3 keys written by the Lambda, so the same `file-list.json` structure and frontend code work with both sources.
 
 ---
 

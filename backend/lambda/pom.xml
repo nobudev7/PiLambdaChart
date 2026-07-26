@@ -110,6 +110,17 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Run the CLI without building a fat JAR:
+                 mvn compile exec:java -Dexec.args="-d 1 -m 1"  -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.nobudev7.ChartGeneratorCLI</mainClass>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
