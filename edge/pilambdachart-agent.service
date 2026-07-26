@@ -1,0 +1,102 @@
+# PiLambdaChart Edge Agent — systemd service unit
+#
+# INSTALLATION INSTRUCTIONS
+# ──────────────────────────
+# 1. Copy this file to the systemd directory:
+#       sudo cp pilambdachart-agent.service /etc/systemd/system/
+#
+# 2. Edit the file to fill in your actual paths and environment:
+#       sudo nano /etc/systemd/system/pilambdachart-agent.service
+#    At minimum, update:
+#       User=           → your Linux username (e.g. pi)
+#       WorkingDirectory= → absolute path to the edge/ folder
+#       ExecStart=      → absolute path to pienv/bin/python and src/agent.py
+#       Environment=    → your device ID, region, and AWS toggle
+#
+# 3. Reload systemd and enable the service:
+#       sudo systemctl daemon-reload
+#       sudo systemctl enable pilambdachart-agent
+#
+# 4. Start the service:
+#       sudo systemctl start pilambdachart-agent
+#
+# USEFUL COMMANDS (after installation)
+# ──────────────────────────────────────
+#   sudo systemctl start   pilambdachart-agent   # start manually
+#   sudo systemctl stop    pilambdachart-agent   # stop gracefully (sends SIGTERM)
+#   sudo systemctl restart pilambdachart-agent   # restart (e.g. after config change)
+#   sudo systemctl status  pilambdachart-agent   # check running status
+#   sudo systemctl enable  pilambdachart-agent   # auto-start on boot
+#   sudo systemctl disable pilambdachart-agent   # remove auto-start on boot
+#
+# LOG ACCESS
+# ───────────
+#   journalctl -u pilambdachart-agent              # full log history
+#   journalctl -u pilambdachart-agent -f           # live tail (Ctrl+C to exit)
+#   journalctl -u pilambdachart-agent --since today
+#   journalctl -u pilambdachart-agent -n 100       # last 100 lines
+#
+# Logs are managed by journald automatically (rotation, size limits).
+# No manual log file or logrotate configuration is needed.
+
+[Unit]
+Description=PiLambdaChart Edge IoT Telemetry Agent
+Documentation=https://github.com/nobudev7/PiLambdaChart
+# Wait for the network to be up before starting so AWS uploads can succeed.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# ── Identity ────────────────────────────────────────────────────────────────
+# Run as your normal user, not root.
+User=pi
+Group=pi
+
+# ── Working directory ────────────────────────────────────────────────────────
+# Must be the absolute path to the edge/ folder so that relative paths in
+# the agent (e.g. config.yaml, pienv/) resolve correctly.
+WorkingDirectory=/home/pi/PiLambdaChart/edge
+
+# ── Agent command ────────────────────────────────────────────────────────────
+# Use the venv Python interpreter directly — no `source activate` needed.
+ExecStart=/home/pi/PiLambdaChart/edge/pienv/bin/python src/agent.py
+
+# ── Device configuration (environment overrides) ─────────────────────────────
+# These override the matching keys in config.yaml.
+# See "Configuration Management" in the README for the full list.
+Environment=DEVICE_ID=1
+Environment=AWS_REGION=us-east-1
+Environment=AWS_ENABLED=true
+# Environment=AWS_TELEMETRY_TABLE=IoT_Telemetry
+
+# ── AWS credentials ───────────────────────────────────────────────────────────
+# Option A (recommended): place credentials in /home/pi/.aws/credentials
+#   The SDK reads them automatically — no Environment lines needed.
+#
+# Option B: set them explicitly here (keep this file root-readable only):
+# Environment=AWS_ACCESS_KEY_ID=AKIA...
+# Environment=AWS_SECRET_ACCESS_KEY=...
+
+# ── Restart policy ───────────────────────────────────────────────────────────
+# Restart the agent automatically if it exits unexpectedly (e.g. sensor crash).
+# Do not restart if it exits cleanly with code 0 (e.g. deliberate stop).
+Restart=on-failure
+RestartSec=10s
+
+# ── Shutdown ─────────────────────────────────────────────────────────────────
+# Give the agent up to 15 seconds to flush the retry buffer before SIGKILL.
+TimeoutStopSec=15
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+# stdout and stderr are captured by journald automatically.
+# Access logs with: journalctl -u pilambdachart-agent -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pilambdachart-agent
+
+[Install]
+# "multi-user.target" is the standard Linux boot target (equivalent to runlevel 3).
+# Enabling the service here means it starts automatically on every boot.
+WantedBy=multi-user.target

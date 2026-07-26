@@ -140,23 +140,108 @@ If you just want to deploy relevant Python scripts, use `sparse-checkout` capabi
    ```
 
 5. Set up AWS credentials via standard environment variables or IAM instance profiles.
-6. **Launch the agent** as a background daemon:
-   * **Using Configuration Overrides (Highly Recommended for Fleets)**:
-     ```bash
-     # Run device 1 with custom region, uploading to AWS
-     DEVICE_ID=1 AWS_REGION=us-east-1 AWS_ENABLED=true nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
-     ```
-     ```bash
-     # Run device 2 on another Pi using the same config file
-     DEVICE_ID=2 AWS_REGION=us-east-1 AWS_ENABLED=true nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
-     ```
-   * **Running standard copy**:
-     ```bash
-     nohup pienv/bin/python src/agent.py > agent.log 2>&1 &
-     ```
+
+---
+
+## Running as a systemd Service (Recommended)
+
+Running the agent as a **systemd service** ensures it starts automatically on boot, restarts on crash, and has its logs managed automatically by `journald`.
+
+### Step 1 — Edit and install the service unit
+
+A template service file is provided at [`edge/pilambdachart-agent.service`](pilambdachart-agent.service).
+
+Open it and update the values marked with your actual paths:
+
+```ini
+User=pi                          # your Linux username
+WorkingDirectory=/home/pi/PiLambdaChart/edge
+ExecStart=/home/pi/PiLambdaChart/edge/pienv/bin/python src/agent.py
+
+Environment=DEVICE_ID=1          # device-specific overrides
+Environment=AWS_REGION=us-east-2
+Environment=AWS_ENABLED=true
+```
+
+Then install it:
+
+```bash
+sudo cp pilambdachart-agent.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+### Step 2 — Enable and start
+
+```bash
+# Enable auto-start on every boot
+sudo systemctl enable pilambdachart-agent
+
+# Start immediately
+sudo systemctl start pilambdachart-agent
+
+# Verify it is running
+sudo systemctl status pilambdachart-agent
+```
+
+### Start / Stop / Restart
+
+```bash
+sudo systemctl start   pilambdachart-agent   # start
+sudo systemctl stop    pilambdachart-agent   # graceful stop (waits up to 15s for flush)
+sudo systemctl restart pilambdachart-agent   # restart after a config.yaml change
+sudo systemctl disable pilambdachart-agent   # remove auto-start on boot
+```
+
+### Viewing Logs
+
+Logs are captured by `journald` automatically — no log file or `logrotate` config needed.
+
+```bash
+# Live tail (Ctrl+C to exit)
+journalctl -u pilambdachart-agent -f
+
+# Last 100 lines
+journalctl -u pilambdachart-agent -n 100
+
+# Logs since last boot
+journalctl -u pilambdachart-agent -b
+
+# Logs from today only
+journalctl -u pilambdachart-agent --since today
+
+# With debug-level output (if you launched agent.py with --debug)
+journalctl -u pilambdachart-agent -f --output cat
+```
+
+### AWS Credentials with systemd
+
+systemd services do **not** inherit your user's shell environment, so `~/.aws/credentials` is the most reliable way to supply credentials:
+
+```ini
+# ~/.aws/credentials
+[default]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+```
+
+Alternatively, add them directly in the service unit (restrict the file permissions to root-readable only if you do this):
+
+```bash
+sudo chmod 600 /etc/systemd/system/pilambdachart-agent.service
+```
+
+```ini
+# in the [Service] section of the unit file:
+Environment=AWS_ACCESS_KEY_ID=AKIA...
+Environment=AWS_SECRET_ACCESS_KEY=...
+```
+
+---
+
 ### Troubleshooting GPIO Warnings
 If you see a `PinFactoryFallback` warning like:
 ```
 PinFactoryFallback: Falling back from lgpio: No module named 'lgpio'
 ```
 This is **non-fatal** — `gpiozero` simply uses the next available backend (`RPi.GPIO`). The PIR motion sensor will still function correctly. To silence it permanently, install the correct requirements file for your Pi model as described in step 3 above.
+
