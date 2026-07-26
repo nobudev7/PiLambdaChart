@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PiLambdaChart — IoT Telemetry Dashboard</title>
+  <meta name="description" content="IoT telemetry dashboard visualizing sensor chart data from Raspberry Pi edge devices." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════
+       SIDEBAR
+  ══════════════════════════════════════════ -->
+  <aside id="sidebar" class="sidebar" role="navigation" aria-label="Device and date navigation">
+
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">PiLambdaChart</span>
+      </div>
+      <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Collapse sidebar">
+        <span>◀</span>
+      </button>
+    </div>
+
+    <!-- Device selector -->
+    <div class="sidebar-section-label">DEVICES</div>
+    <nav id="device-list" class="device-list" aria-label="Device selector">
+      <div class="sidebar-loading"><div class="spinner"></div><span>Loading…</span></div>
+    </nav>
+
+    <!-- Year / Month navigator (populated after device selected) -->
+    <div class="sidebar-section-label" id="history-label" style="display:none">HISTORY</div>
+    <nav id="month-list" class="month-list" aria-label="Year/month selector"></nav>
+
+    <div class="sidebar-footer">
+      <span class="badge-dot"></span>
+      <span id="data-source-label" class="sidebar-footer-text">Local</span>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════
+       MAIN LAYOUT
+  ══════════════════════════════════════════ -->
+  <div class="main-wrapper" id="main-wrapper">
+
+    <!-- Compact topbar -->
+    <header class="topbar" role="banner">
+      <div class="topbar-left">
+        <button id="mobile-toggle" class="mobile-toggle" aria-label="Open menu">☰</button>
+        <h1 class="page-title">IoT Telemetry Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <span class="month-badge" id="month-badge"></span>
+      </div>
+    </header>
+
+    <!-- Month view: day cards with tiled metric charts -->
+    <main class="content" id="main-content" role="main">
+
+      <!-- Spinner while loading -->
+      <div class="main-loading hidden" id="main-loading">
+        <div class="spinner spinner-lg"></div>
+        <span>Loading charts…</span>
+      </div>
+
+      <!-- Month view area -->
+      <div id="month-view" class="month-view"></div>
+
+      <!-- Hint footer (visible when no data or on first load) -->
+      <footer class="content-footer" id="content-footer">
+        <p class="footer-hint">Select a device and month from the sidebar to view charts.</p>
+        <p class="footer-sub">Charts are generated from Raspberry Pi sensor data and stored as static PNGs.</p>
+      </footer>
+
+    </main>
+  </div>
+
+  <!-- Mobile sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
