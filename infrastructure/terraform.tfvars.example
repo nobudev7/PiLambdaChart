@@ -27,8 +27,18 @@ enable_cloudfront_basic_auth = true     # Enabled by default when CloudFront is 
 basic_auth_username          = "admin"
 basic_auth_password          = "pilambdachart2026!"  # Change before deploying!
 
-# Optional Custom Domain (leave empty to use default *.cloudfront.net domain)
+# Optional Custom Domain & WAF Web ACL (leave empty unless configured)
 custom_domain_name  = "" # e.g. "dashboard.example.com"
 acm_certificate_arn = "" # e.g. "arn:aws:acm:us-east-1:123456789012:certificate/..."
+web_acl_id          = "" # e.g. "arn:aws:wafv2:us-east-1:123456789012:global/webacl/..."
+
+# ── Lambda Function & Automated Schedule ───────────────────────────────────────
+enable_lambda           = false               # Set to true after building backend JAR
+lambda_schedule_cron    = "rate(5 minutes)"   # Triggers every 5 minutes
+lambda_trigger_devices  = [1, 2]              # Device IDs to generate charts for
+lambda_trigger_metrics  = [1, 2, 3, 4, 5]     # Metric IDs to generate per device
+lambda_trigger_timezone = "America/New_York"  # Target timezone for day calculation
+
+
 
 

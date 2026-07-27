@@ -84,6 +84,34 @@ After `terraform apply`, the following values are printed and can be referenced 
 | `metadata_table_arn` | ARN — used to scope Lambda IAM read policy |
 | `cloudfront_distribution_id` | CloudFront Distribution ID (used for `deploy.sh` cache invalidations) |
 | `cloudfront_dashboard_url` | Full HTTPS URL to access the private dashboard |
+| `lambda_function_name` | Name of the deployed AWS Lambda function |
+| `lambda_function_arn` | ARN of the deployed AWS Lambda function |
+
+---
+
+## AWS Lambda Function & EventBridge Schedule
+
+The Java Chart Generator Lambda function and its automated trigger schedule are provisioned via [`lambda.tf`](lambda.tf).
+
+### Key Features:
+- **Automatic Deployment & Updates**: Directly deploys `backend/lambda/target/chart-generator-lambda-1.0-SNAPSHOT.jar`. SHA-256 code hashing automatically triggers code updates in AWS whenever you compile a new JAR.
+- **Environment Binding**: Binds DynamoDB table names and S3 bucket name automatically.
+- **Automated Multi-Device & Multi-Metric Triggers**: Dynamically provisions EventBridge targets for each combination of device ID and metric ID specified in Terraform variables.
+
+### Configuration Options (`terraform.tfvars`)
+
+```hcl
+# 1. Enable AWS Lambda Provisioning
+enable_lambda = true
+
+# 2. Automated EventBridge Schedule (default: every 5 minutes)
+lambda_schedule_cron = "rate(5 minutes)"
+
+# 3. Devices & Metrics to render on each schedule trigger
+lambda_trigger_devices  = [1, 2]
+lambda_trigger_metrics  = [1, 2, 3, 4, 5]
+lambda_trigger_timezone = "America/New_York"
+```
 
 ---
 
@@ -96,7 +124,11 @@ CloudFront CDN can be optionally provisioned in front of the private S3 chart bu
 - **HTTP Basic Authentication (Enabled by default)**: A edge-deployed CloudFront Function prompts users for username/password before serving any files.
 - **Optional Custom Subdomain**: Uses default `*.cloudfront.net` SSL out of the box, or supports custom domain CNAMEs with ACM certificates in `us-east-1`.
 
-Note that this automatically make CDN Distribution on **pay-as-you-go pricing plan**. To select $0/month Free plan, you need to change pricing plan from AWS console manually. 
+Note that this automatically make CDN Distribution on **pay-as-you-go pricing plan**. To select $0/month Free plan, you need to change pricing plan from AWS console manually. After manually changing the plan, set the `web_acl_id` in your terraform.tfvars file. To get the `web_acl_id` value, run the following command with your distribution ID.
+```bash
+aws cloudfront get-distribution --id <DISTRIBUTION_ID>> --query 'Distribution.DistributionConfig.WebACLId' --output text
+```
+
 
 ### Configuration Options (`terraform.tfvars`)
 

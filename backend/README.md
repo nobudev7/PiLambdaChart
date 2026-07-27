@@ -21,7 +21,26 @@ mvn clean package
 This generates the packaged artifact:
 *   `target/chart-generator-lambda-1.0-SNAPSHOT.jar`
 
-Upload this shaded JAR as the deployment package for your AWS Lambda function.
+## Automated Deployment via Terraform
+
+The Lambda function and its EventBridge automated trigger schedule are managed declaratively in [`infrastructure/lambda.tf`](../infrastructure/lambda.tf).
+
+### Deploy / Update Function Code
+
+1. Build the JAR:
+   ```bash
+   cd lambda/
+   mvn clean package
+   ```
+
+2. Enable and deploy via Terraform:
+   ```bash
+   cd ../infrastructure/
+   # Ensure `enable_lambda = true` is set in terraform.tfvars
+   terraform apply
+   ```
+
+Terraform automatically binds the DynamoDB and S3 bucket names to the environment variables, assigns the IAM execution role, provisions an automated 5-minute EventBridge trigger, and detects JAR checksum changes to update function code on re-build.
 
 ## Lambda Configuration
 

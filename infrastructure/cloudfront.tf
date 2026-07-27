@@ -69,6 +69,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   is_ipv6_enabled     = true
   comment             = "${var.project_name} S3 Dashboard CDN Distribution"
   default_root_object = "index.html"
+  web_acl_id          = var.web_acl_id != "" ? var.web_acl_id : null
 
   aliases = var.custom_domain_name != "" ? [var.custom_domain_name] : []
 

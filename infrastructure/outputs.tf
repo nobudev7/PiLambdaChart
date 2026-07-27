@@ -43,6 +43,17 @@ output "lambda_exec_role_arn" {
   value       = aws_iam_role.lambda_exec_role.arn
 }
 
+output "lambda_function_name" {
+  description = "Name of the deployed AWS Lambda function."
+  value       = var.enable_lambda ? aws_lambda_function.chart_generator[0].function_name : null
+}
+
+output "lambda_function_arn" {
+  description = "ARN of the deployed AWS Lambda function."
+  value       = var.enable_lambda ? aws_lambda_function.chart_generator[0].arn : null
+}
+
+
 # ── CloudFront Outputs ────────────────────────────────────────────────────────
 output "cloudfront_distribution_id" {
   description = "ID of the CloudFront distribution (used for deploy.sh invalidations)."

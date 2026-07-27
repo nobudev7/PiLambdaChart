@@ -49,21 +49,29 @@ public class LocalChartRenderTest {
     // ── Test cases ────────────────────────────────────────────────────────────
 
     @Test
-    public void testRenderChart_Device1_Temperature() throws IOException {
+    public void testRenderChart_Device1_Temperature_Today() throws IOException {
+        // Default behavior: LocalDate.now(ZONE_ID) represents today
         renderAndSave(1, 1, LocalDate.now(ZONE_ID), "XYLineChart",
-                "Temperature (°C)", "device1-metric1-temperature.png");
+                "Temperature (°C)", "device1-metric1-temperature-today.png");
     }
 
     @Test
-    public void testRenderChart_Device1_Humidity() throws IOException {
+    public void testRenderChart_Device1_Humidity_Today() throws IOException {
         renderAndSave(1, 2, LocalDate.now(ZONE_ID), "XYLineChart",
-                "Humidity (%)", "device1-metric2-humidity.png");
+                "Humidity (%)", "device1-metric2-humidity-today.png");
     }
 
     @Test
-    public void testRenderChart_Device1_AmbientLight() throws IOException {
+    public void testRenderChart_Device1_AmbientLight_Today() throws IOException {
         renderAndSave(1, 3, LocalDate.now(ZONE_ID), "XYAreaChart",
-                "Ambient Light (Lux)", "device1-metric3-light.png");
+                "Ambient Light (Lux)", "device1-metric3-light-today.png");
+    }
+
+    @Test
+    public void testRenderChart_Device1_Temperature_Yesterday() throws IOException {
+        // Test rendering yesterday's chart explicitly
+        renderAndSave(1, 1, LocalDate.now(ZONE_ID).minusDays(1), "XYLineChart",
+                "Temperature (°C)", "device1-metric1-temperature-yesterday.png");
     }
 
     // ── Core render logic ─────────────────────────────────────────────────────

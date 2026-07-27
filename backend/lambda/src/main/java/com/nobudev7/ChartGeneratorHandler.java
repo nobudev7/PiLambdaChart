@@ -102,15 +102,26 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
 
             targetDate = LocalDate.now(zoneId);
 
+            String dateVal = null;
             if (input.containsKey("date")) {
-                String dateInput = String.valueOf(input.get("date"));
-                try {
-                    targetDate = LocalDate.parse(dateInput);
-                } catch (Exception e) {
-                    context.getLogger().log("Invalid date format: " + dateInput + ". Expected YYYY-MM-DD. Defaulting to today.");
+                dateVal = String.valueOf(input.get("date")).trim();
+            } else if (input.containsKey("target")) {
+                dateVal = String.valueOf(input.get("target")).trim();
+            }
+
+            if (dateVal != null && !dateVal.isEmpty()) {
+                if ("today".equalsIgnoreCase(dateVal)) {
+                    targetDate = LocalDate.now(zoneId);
+                } else if ("yesterday".equalsIgnoreCase(dateVal)) {
+                    targetDate = LocalDate.now(zoneId).minusDays(1);
+                } else {
+                    try {
+                        targetDate = LocalDate.parse(dateVal);
+                    } catch (Exception e) {
+                        context.getLogger().log("Invalid date string '" + dateVal + "'. Expected YYYY-MM-DD, 'today', or 'yesterday'. Defaulting to today.");
+                        targetDate = LocalDate.now(zoneId);
+                    }
                 }
-            } else if ("yesterday".equalsIgnoreCase(String.valueOf(input.get("target")))) {
-                targetDate = targetDate.minusDays(1);
             }
         } else {
             targetDate = LocalDate.now(zoneId);

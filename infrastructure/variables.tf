@@ -72,4 +72,42 @@ variable "acm_certificate_arn" {
   default     = ""
 }
 
+variable "web_acl_id" {
+  description = "WAF Web ACL ARN attached to CloudFront distribution (required for CloudFront security / flat-rate subscription plans)."
+  type        = string
+  default     = ""
+}
+
+# ── Lambda & Schedule Variables ───────────────────────────────────────────────
+variable "enable_lambda" {
+  description = "Provision the Chart Generator AWS Lambda function and EventBridge trigger."
+  type        = bool
+  default     = false
+}
+
+variable "lambda_schedule_cron" {
+  description = "EventBridge schedule for automatic chart generation (default: rate(5 minutes))."
+  type        = string
+  default     = "rate(5 minutes)"
+}
+
+variable "lambda_trigger_devices" {
+  description = "List of device IDs to generate charts for on each schedule trigger."
+  type        = list(number)
+  default     = [1]
+}
+
+variable "lambda_trigger_metrics" {
+  description = "List of metric IDs per device to generate charts for on each schedule trigger."
+  type        = list(number)
+  default     = [1, 2, 3, 4, 5]
+}
+
+variable "lambda_trigger_timezone" {
+  description = "Timezone context for target day calculations (e.g. America/New_York)."
+  type        = string
+  default     = "America/New_York"
+}
+
+
 

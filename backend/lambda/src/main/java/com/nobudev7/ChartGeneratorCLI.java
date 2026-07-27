@@ -97,6 +97,7 @@ public class ChartGeneratorCLI {
         // ── Parse arguments ──────────────────────────────────────────────────
         Set<Integer> deviceIds = new LinkedHashSet<>();
         Set<Integer> metricIds = new LinkedHashSet<>();
+        List<String> rawDates   = new ArrayList<>();
         List<LocalDate> dates   = new ArrayList<>();
         ZoneId zoneId           = ZoneId.of(envOrDefault("TEST_TIMEZONE", "America/New_York"));
         String outputDir        = "frontend/public/output";
@@ -108,11 +109,11 @@ public class ChartGeneratorCLI {
                 case "-h", "--help" -> { printHelp(); return; }
                 case "-d", "--device"    -> parseIds(nextArg(args, i++, "--device"), deviceIds);
                 case "-m", "--metric"    -> parseIds(nextArg(args, i++, "--metric"), metricIds);
-                case "--date"            -> dates.add(parseDate(nextArg(args, i++, "--date")));
+                case "--date"            -> rawDates.add(nextArg(args, i++, "--date"));
                 case "--dates"           -> Arrays.stream(nextArg(args, i++, "--dates").split(","))
                                                   .map(String::trim)
-                                                  .map(ChartGeneratorCLI::parseDate)
-                                                  .forEach(dates::add);
+                                                  .filter(s -> !s.isEmpty())
+                                                  .forEach(rawDates::add);
                 case "--tz"              -> zoneId    = ZoneId.of(nextArg(args, i++, "--tz"));
                 case "-o", "--output"    -> outputDir = nextArg(args, i++, "--output");
                 case "--table"           -> tableName = nextArg(args, i++, "--table");
@@ -136,11 +137,16 @@ public class ChartGeneratorCLI {
             }
         }
 
-        // ── Validate required arguments ──────────────────────────────────────
+        // ── Validate required arguments and resolve dates ────────────────────
         if (deviceIds.isEmpty()) { System.err.println("Error: at least one --device is required."); printHelp(); System.exit(1); }
         if (metricIds.isEmpty()) { System.err.println("Error: at least one --metric is required."); printHelp(); System.exit(1); }
-        if (dates.isEmpty()) {
-            dates.add(LocalDate.now(zoneId).minusDays(1));  // default: yesterday
+
+        if (rawDates.isEmpty()) {
+            dates.add(LocalDate.now(zoneId));  // default: today
+        } else {
+            for (String rd : rawDates) {
+                dates.add(parseDate(rd, zoneId));
+            }
         }
 
         // ── Summary ──────────────────────────────────────────────────────────
@@ -379,11 +385,18 @@ public class ChartGeneratorCLI {
         return args[i + 1];
     }
 
-    private static LocalDate parseDate(String s) {
+    private static LocalDate parseDate(String s, ZoneId zoneId) {
+        String trimmed = s.trim();
+        if ("today".equalsIgnoreCase(trimmed)) {
+            return LocalDate.now(zoneId);
+        }
+        if ("yesterday".equalsIgnoreCase(trimmed)) {
+            return LocalDate.now(zoneId).minusDays(1);
+        }
         try {
-            return LocalDate.parse(s.trim());
+            return LocalDate.parse(trimmed);
         } catch (DateTimeParseException e) {
-            System.err.println("Error: invalid date '" + s + "'. Expected YYYY-MM-DD.");
+            System.err.println("Error: invalid date '" + s + "'. Expected YYYY-MM-DD, 'today', or 'yesterday'.");
             System.exit(1);
             return null;
         }
@@ -407,8 +420,8 @@ public class ChartGeneratorCLI {
             OPTIONS
               -d, --device  <id[,id...]>  Device ID(s) (required). Comma-separated or repeated.
               -m, --metric  <id[,id...]>  Metric ID(s) (required). Comma-separated or repeated.
-              --date        <YYYY-MM-DD>  Target date (default: yesterday).
-              --dates       <d1,d2,...>   Multiple dates, comma-separated.
+              --date        <date>        Target date ('today', 'yesterday', or YYYY-MM-DD. Default: today).
+              --dates       <d1,d2,...>   Multiple dates/keywords, comma-separated.
               --tz          <zone>        Timezone (default: America/New_York).
               -o, --output  <dir>         Output directory
                                             (default: frontend/public/output,
@@ -425,7 +438,7 @@ public class ChartGeneratorCLI {
               5  Water Level   (XYLineChart)
 
             EXAMPLES
-              # Yesterday's temperature chart for device 1
+              # Today's temperature chart for device 1
               -d 1 -m 1
 
               # All sensor metrics for two devices on a specific date
