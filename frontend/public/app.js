@@ -61,6 +61,7 @@ const els = {
 ════════════════════════════════════════════════════════════════ */
 async function init() {
   setupSidebar();
+  setupChartModal();
 
   const isLocal = DATA_BASE_URL === 'output' || DATA_BASE_URL.startsWith('.');
   els.dataSourceLabel.textContent = isLocal ? 'Local' : 'S3 / CDN';
@@ -284,6 +285,14 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
 
     tilesGrid.appendChild(tile);
 
+    // Click tile to enlarge/expand chart to browser window size
+    tile.addEventListener('click', () => {
+      if (imgEl.src && !imgEl.classList.contains('loading')) {
+        const titleText = `Device ${deviceId} · ${meta.name} — ${formatDate(dateStr)}`;
+        openChartModal(imgUrl, titleText);
+      }
+    });
+
     // Load the image using a detached Image() to avoid caching issues
     const imgEl = tile.querySelector('.tile-img');
     const placeholder = tile.querySelector('.tile-placeholder');
@@ -302,6 +311,66 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
 
   card.appendChild(tilesGrid);
   return card;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHART ENLARGE LIGHTBOX MODAL
+════════════════════════════════════════════════════════════════ */
+function setupChartModal() {
+  const modal = $('chart-modal');
+  const closeBtn = $('chart-modal-close');
+
+  if (!modal) return;
+
+  // Click anywhere on the modal or enlarged chart to collapse back to normal size
+  modal.addEventListener('click', closeChartModal);
+  if (closeBtn) {
+    closeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      closeChartModal();
+    });
+  }
+
+  // Keyboard Esc key to collapse
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal.classList.contains('active')) {
+      closeChartModal();
+    }
+  });
+}
+
+function openChartModal(imgSrc, titleText) {
+  const modal = $('chart-modal');
+  const modalImg = $('chart-modal-img');
+  const modalTitle = $('chart-modal-title');
+
+  if (!modal || !modalImg) return;
+
+  modalImg.src = imgSrc;
+  if (modalTitle) modalTitle.textContent = titleText || '';
+
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Force reflow for smooth CSS opacity transition
+  void modal.offsetWidth;
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeChartModal() {
+  const modal = $('chart-modal');
+  if (!modal || !modal.classList.contains('active')) return;
+
+  modal.classList.remove('active');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.classList.add('hidden');
+    }
+  }, 260);
 }
 
 /* ════════════════════════════════════════════════════════════════

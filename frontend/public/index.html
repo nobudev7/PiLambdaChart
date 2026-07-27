@@ -84,6 +84,18 @@
   <!-- Mobile sidebar overlay -->
   <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
+  <!-- Chart Enlarge Lightbox Modal -->
+  <div id="chart-modal" class="chart-modal hidden" aria-hidden="true" role="dialog" aria-label="Enlarged Chart View">
+    <div class="chart-modal-container">
+      <div class="chart-modal-header">
+        <span class="chart-modal-title" id="chart-modal-title"></span>
+        <button class="chart-modal-close" id="chart-modal-close" aria-label="Close enlarged view">✕</button>
+      </div>
+      <img id="chart-modal-img" class="chart-modal-img" alt="Enlarged telemetry chart" />
+      <span class="chart-modal-hint">Click image or press Esc to return to normal size</span>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

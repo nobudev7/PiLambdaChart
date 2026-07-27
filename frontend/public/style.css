@@ -390,11 +390,99 @@ body.sidebar-collapsed .main-wrapper { margin-left: var(--sidebar-collapsed); }
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color var(--dur-fast), transform var(--dur-fast);
+  cursor: zoom-in;
+  transition: border-color var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast);
 }
 .chart-tile:hover {
-  border-color: var(--border-muted);
-  transform: translateY(-1px);
+  border-color: var(--accent-dim);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHART ENLARGE LIGHTBOX MODAL
+════════════════════════════════════════════════════════════════ */
+.chart-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: hsla(222, 24%, 4%, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-mid) var(--ease-smooth);
+  cursor: zoom-out;
+}
+
+.chart-modal.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.chart-modal-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 96vw;
+  max-height: 95vh;
+  gap: 10px;
+}
+
+.chart-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.chart-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chart-modal-close {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.chart-modal-close:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.chart-modal-img {
+  max-width: 95vw;
+  max-height: 84vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-muted);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  cursor: zoom-out;
+  transition: transform var(--dur-mid) var(--ease-smooth);
+}
+
+.chart-modal-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .tile-header {
