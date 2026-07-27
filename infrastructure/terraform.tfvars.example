@@ -21,3 +21,14 @@ metadata_table_name  = "IoT_Metadata"
 # ── Feature Flags ─────────────────────────────────────────────────────────────
 enable_point_in_time_recovery = false   # Set to true for staging/prod
 
+# ── CloudFront CDN & Access Protection ─────────────────────────────────────────
+enable_cloudfront            = false    # Set to true to deploy CloudFront CDN
+enable_cloudfront_basic_auth = true     # Enabled by default when CloudFront is active
+basic_auth_username          = "admin"
+basic_auth_password          = "pilambdachart2026!"  # Change before deploying!
+
+# Optional Custom Domain (leave empty to use default *.cloudfront.net domain)
+custom_domain_name  = "" # e.g. "dashboard.example.com"
+acm_certificate_arn = "" # e.g. "arn:aws:acm:us-east-1:123456789012:certificate/..."
+
+

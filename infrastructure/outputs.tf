@@ -42,3 +42,19 @@ output "lambda_exec_role_arn" {
   description = "ARN of the Lambda execution IAM role. Assign this as the Lambda function's execution role."
   value       = aws_iam_role.lambda_exec_role.arn
 }
+
+# ── CloudFront Outputs ────────────────────────────────────────────────────────
+output "cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution (used for deploy.sh invalidations)."
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.s3_distribution[0].id : null
+}
+
+output "cloudfront_domain_name" {
+  description = "Domain name of the CloudFront distribution."
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.s3_distribution[0].domain_name : null
+}
+
+output "cloudfront_dashboard_url" {
+  description = "URL to access the private dashboard via CloudFront."
+  value       = var.enable_cloudfront ? (var.custom_domain_name != "" ? "https://${var.custom_domain_name}" : "https://${aws_cloudfront_distribution.s3_distribution[0].domain_name}") : null
+}

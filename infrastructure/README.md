@@ -82,7 +82,39 @@ After `terraform apply`, the following values are printed and can be referenced 
 | `telemetry_table_arn` | ARN — used to scope Lambda and edge client IAM policies |
 | `metadata_table_name` | Name of the metadata table |
 | `metadata_table_arn` | ARN — used to scope Lambda IAM read policy |
+| `cloudfront_distribution_id` | CloudFront Distribution ID (used for `deploy.sh` cache invalidations) |
+| `cloudfront_dashboard_url` | Full HTTPS URL to access the private dashboard |
 
+---
+
+## CloudFront CDN & Access Protection
+
+CloudFront CDN can be optionally provisioned in front of the private S3 chart bucket via [`cloudfront.tf`](cloudfront.tf).
+
+### Key Features:
+- **Origin Access Control (OAC)**: S3 bucket remains 100% private. Only CloudFront is granted read permission via S3 bucket policy.
+- **HTTP Basic Authentication (Enabled by default)**: A edge-deployed CloudFront Function prompts users for username/password before serving any files.
+- **Optional Custom Subdomain**: Uses default `*.cloudfront.net` SSL out of the box, or supports custom domain CNAMEs with ACM certificates in `us-east-1`.
+
+Note that this automatically make CDN Distribution on **pay-as-you-go pricing plan**. To select $0/month Free plan, you need to change pricing plan from AWS console manually. 
+
+### Configuration Options (`terraform.tfvars`)
+
+```hcl
+# 1. Enable CloudFront CDN
+enable_cloudfront = true
+
+# 2. HTTP Basic Auth (enabled by default when enable_cloudfront = true)
+enable_cloudfront_basic_auth = true
+basic_auth_username          = "admin"
+basic_auth_password          = "your-secure-password-here!"
+
+# 3. Optional Custom Domain (leave empty for default *.cloudfront.net domain)
+custom_domain_name  = "dashboard.example.com"
+acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+```
+
+---
 
 ### Seeding Metadata
 
@@ -99,4 +131,5 @@ And load them into DynamoDB using the AWS CLI:
 ```bash
 aws dynamodb batch-write-item --request-items file://metrics-config.json
 ```
+
 
