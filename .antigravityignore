@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+
+# backend Java
+target/**
+*.class
+
+# Terraform
+.terraform/
+.terraform.*

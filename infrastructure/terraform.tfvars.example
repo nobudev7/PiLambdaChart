@@ -34,6 +34,7 @@ web_acl_id          = "" # e.g. "arn:aws:wafv2:us-east-1:123456789012:global/web
 
 # ── Lambda Function & Automated Schedule ───────────────────────────────────────
 enable_lambda           = false               # Set to true after building backend JAR
+lambda_memory_size      = 512                 # Memory in MB allocated to Lambda (default: 512)
 lambda_schedule_cron    = "rate(5 minutes)"   # Triggers every 5 minutes
 lambda_trigger_devices  = [1, 2]              # Device IDs to generate charts for
 lambda_trigger_metrics  = [1, 2, 3, 4, 5]     # Metric IDs to generate per device

@@ -76,22 +76,15 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
     @Override
     public String handleRequest(Map<String, Object> input, Context context) {
         int deviceId = 1;
-        int metricId = 1;
         ZoneId zoneId = DEFAULT_ZONE_ID;
         LocalDate targetDate = null;
 
-        // 1. Parse incoming payload parameters
+        // 1. Parse device_id, timezone, and target date
         if (input != null) {
             if (input.containsKey("device")) {
                 deviceId = parseId(input.get("device"));
             } else if (input.containsKey("device_id")) {
                 deviceId = parseId(input.get("device_id"));
-            }
-            
-            if (input.containsKey("metric")) {
-                metricId = parseId(input.get("metric"));
-            } else if (input.containsKey("metric_id")) {
-                metricId = parseId(input.get("metric_id"));
             }
             
             if (input.containsKey("timezone")) {
@@ -127,54 +120,100 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             targetDate = LocalDate.now(zoneId);
         }
 
+        List<Integer> metricIds = parseMetricIds(input);
         String dateStr = targetDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        context.getLogger().log(String.format("Generating chart for Device=%d, Metric=%d, Date=%s, TZ=%s", 
-                deviceId, metricId, dateStr, zoneId.getId()));
+
+        context.getLogger().log(String.format("Starting batch chart generation for Device=%d, Metrics=%s, Date=%s, TZ=%s",
+                deviceId, metricIds, dateStr, zoneId.getId()));
 
         try {
-            // 2. Look up metadata for the device and metric to get labels and chart types
+            // 2. Look up device metadata once
             Map<String, String> deviceMetadata = fetchMetadata("DEVICE", deviceId);
-            Map<String, String> metricMetadata = fetchMetadata("METRIC", metricId);
-
             String deviceName = deviceMetadata.getOrDefault("Name", "Device " + deviceId);
-            String metricName = getFallbackMetricName(metricId, metricMetadata.getOrDefault("Name", "Metric " + metricId));
-            String unit = getFallbackMetricUnit(metricId, metricMetadata.getOrDefault("Unit", ""));
-            String chartType = metricMetadata.getOrDefault("ChartType", "XYLineChart");
 
-            context.getLogger().log(String.format("Metadata resolved: DeviceName='%s', MetricName='%s', Unit='%s', ChartType='%s'", 
-                    deviceName, metricName, unit, chartType));
+            // 3. Download existing file-list.json from S3 ONCE before batch processing
+            TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree = loadFileListJson(context);
 
-            // 3. Query DynamoDB using Year-Bounded Timezone Bounds
-            List<TelemetryData> data = fetchTelemetryData(deviceId, metricId, targetDate, zoneId, context);
-            if (data.isEmpty()) {
-                context.getLogger().log(String.format("No data found for Device=%d, Metric=%d on %s", deviceId, metricId, dateStr));
-                return "No data found for date " + dateStr;
+            int generatedCount = 0;
+            int skippedCount = 0;
+
+            // 4. Process each metric ID for this device
+            for (int metricId : metricIds) {
+                Map<String, String> metricMetadata = fetchMetadata("METRIC", metricId);
+
+                String metricName = getFallbackMetricName(metricId, metricMetadata.getOrDefault("Name", "Metric " + metricId));
+                String unit = getFallbackMetricUnit(metricId, metricMetadata.getOrDefault("Unit", ""));
+                String chartType = metricMetadata.getOrDefault("ChartType", "XYLineChart");
+
+                // Query DynamoDB for telemetry data
+                List<TelemetryData> data = fetchTelemetryData(deviceId, metricId, targetDate, zoneId, context);
+                if (data.isEmpty()) {
+                    context.getLogger().log(String.format("No data found for Device=%d, Metric=%d (%s) on %s", deviceId, metricId, metricName, dateStr));
+                    skippedCount++;
+                    continue;
+                }
+
+                // Generate JFreeChart image bytes
+                String chartTitle = String.format("%s - %s on %s", deviceName, metricName, targetDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
+                String yAxisLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
+
+                byte[] chartImage = chartGenerator.generateChart(data, chartTitle, yAxisLabel, chartType, metricId);
+                if (chartImage != null) {
+                    // Upload PNG to S3
+                    String s3Key = uploadToS3(chartImage, deviceId, metricId, targetDate, dateStr, context);
+                    // Update in-memory fileTree
+                    updateFileListInMemory(fileTree, deviceId, metricId, s3Key, targetDate);
+                    generatedCount++;
+                }
             }
 
-            // 4. Generate the styled chart JFreeChart image
-            String chartTitle = String.format("%s - %s on %s", deviceName, metricName, targetDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
-            String yAxisLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
-            
-            byte[] chartImage = chartGenerator.generateChart(data, chartTitle, yAxisLabel, chartType, metricId);
-
-            if (chartImage != null) {
-                // 5. Upload image to S3 in the hierarchical output path
-                // output/{deviceID}/{metricID}/{year}/{month}/{metricID}-YYYYMMDD.png
-                String s3Key = uploadToS3(chartImage, deviceId, metricId, targetDate, dateStr, context);
-                
-                // 6. Update file-list.json S3 registry tree
-                updateFileListJson(deviceId, metricId, s3Key, targetDate, context);
-                
-                return String.format("Successfully generated chart: s3://%s/%s", BUCKET_NAME, s3Key);
-            } else {
-                return "Error: Failed to generate chart bytes.";
+            // 5. Upload updated file-list.json back to S3 ONCE after all metric charts are processed
+            if (generatedCount > 0) {
+                saveFileListJson(fileTree, context);
             }
+
+            String summary = String.format("Batch complete for Device %d on %s: %d chart(s) generated, %d skipped.",
+                    deviceId, dateStr, generatedCount, skippedCount);
+            context.getLogger().log(summary);
+            return summary;
 
         } catch (Exception e) {
-            context.getLogger().log("Error during handler execution: " + e.getMessage());
+            context.getLogger().log("Error during batch handler execution: " + e.getMessage());
             e.printStackTrace();
             return "Error: " + e.getMessage();
         }
+    }
+
+    private List<Integer> parseMetricIds(Map<String, Object> input) {
+        List<Integer> metrics = new ArrayList<>();
+        if (input == null) {
+            return List.of(1, 2, 3, 4, 5);
+        }
+
+        if (input.containsKey("metrics")) {
+            Object val = input.get("metrics");
+            if (val instanceof List<?>) {
+                for (Object item : (List<?>) val) {
+                    try { metrics.add(parseId(item)); } catch (Exception ignored) {}
+                }
+            } else if (val != null) {
+                String[] parts = String.valueOf(val).split(",");
+                for (String part : parts) {
+                    if (!part.trim().isEmpty()) {
+                        try { metrics.add(Integer.parseInt(part.trim())); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        } else if (input.containsKey("metric")) {
+            metrics.add(parseId(input.get("metric")));
+        } else if (input.containsKey("metric_id")) {
+            metrics.add(parseId(input.get("metric_id")));
+        }
+
+        if (metrics.isEmpty()) {
+            return List.of(1, 2, 3, 4, 5);
+        }
+        return metrics;
     }
 
     private int parseId(Object value) {
@@ -319,45 +358,52 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
     }
 
     /**
-     * Update index file-list.json matching multi-level hierarchy: Device -> Metric -> Year -> Month -> Files
+     * Download existing file-list.json from S3 once before batch processing.
      */
-    private void updateFileListJson(int deviceId, int metricId, String newImageKey, LocalDate date, Context context) {
-        TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree;
-
-        // 1. Download existing file-list.json from S3
+    private TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> loadFileListJson(Context context) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(BUCKET_NAME)
                     .key(FILE_LIST_JSON_KEY)
                     .build();
-            
             InputStreamReader reader = new InputStreamReader(s3Client.getObject(getObjectRequest));
             Type type = new TypeToken<TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>>>(){}.getType();
-            fileTree = gson.fromJson(reader, type);
-            if (fileTree == null) fileTree = new TreeMap<>();
-            
+            TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree = gson.fromJson(reader, type);
+            return fileTree != null ? fileTree : new TreeMap<>();
         } catch (Exception e) {
             context.getLogger().log("Could not find or read existing file-list.json, creating a new registry. Msg: " + e.getMessage());
-            fileTree = new TreeMap<>();
+            return new TreeMap<>();
         }
+    }
 
-        // 2. Traverse and update the tree structures
+    /**
+     * Merge generated key into in-memory fileTree.
+     */
+    private void updateFileListInMemory(
+            TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree,
+            int deviceId, int metricId, String newImageKey, LocalDate date) {
         String devKey = String.valueOf(deviceId);
         String metKey = String.valueOf(metricId);
         String yrKey = String.valueOf(date.getYear());
         String moKey = date.format(DateTimeFormatter.ofPattern("MM"));
-        
+
         TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>> metricsMap = fileTree.computeIfAbsent(devKey, k -> new TreeMap<>());
         TreeMap<String, TreeMap<String, List<String>>> yearsMap = metricsMap.computeIfAbsent(metKey, k -> new TreeMap<>());
         TreeMap<String, List<String>> monthsMap = yearsMap.computeIfAbsent(yrKey, k -> new TreeMap<>());
         List<String> images = monthsMap.computeIfAbsent(moKey, k -> new ArrayList<>());
-        
+
         if (!images.contains(newImageKey)) {
             images.add(newImageKey);
             Collections.sort(images);
         }
+    }
 
-        // 3. Upload updated tree back to S3
+    /**
+     * Upload updated file-list.json back to S3 once after batch processing completes.
+     */
+    private void saveFileListJson(
+            TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree,
+            Context context) {
         String json = gson.toJson(fileTree);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(BUCKET_NAME)

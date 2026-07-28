@@ -91,6 +91,12 @@ variable "lambda_schedule_cron" {
   default     = "rate(5 minutes)"
 }
 
+variable "lambda_memory_size" {
+  description = "Memory size (in MB) allocated to the Chart Generator AWS Lambda function."
+  type        = number
+  default     = 512
+}
+
 variable "lambda_trigger_devices" {
   description = "List of device IDs to generate charts for on each schedule trigger."
   type        = list(number)

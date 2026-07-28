@@ -5,7 +5,7 @@
 # This file provisions:
 #   1. AWS Lambda Function — deploys the compiled Maven shaded JAR from backend/lambda.
 #   2. EventBridge Rule — triggers automated chart generation on schedule (default: rate(5 minutes)).
-#   3. EventBridge Targets — links schedule rule to the Lambda function for each device & metric combination.
+#   3. EventBridge Targets — links schedule rule to the Lambda function (one invocation per device).
 #   4. Lambda Permission — allows EventBridge service to invoke the function.
 #
 # Controlled by variables:
@@ -16,20 +16,6 @@
 #   - lambda_trigger_timezone (default: "America/New_York")
 # ─────────────────────────────────────────────
 
-locals {
-  # Build a flattened list of all device-metric target pairs
-  # e.g., [{device_id=1, metric_id=1}, {device_id=1, metric_id=2}, ...]
-  lambda_target_pairs = var.enable_lambda ? flatten([
-    for dev_id in var.lambda_trigger_devices : [
-      for met_id in var.lambda_trigger_metrics : {
-        key       = "ChartGen-Dev${dev_id}-Met${met_id}"
-        device_id = dev_id
-        metric_id = met_id
-      }
-    ]
-  ]) : []
-}
-
 # 1. Lambda Function Definition
 resource "aws_lambda_function" "chart_generator" {
   count = var.enable_lambda ? 1 : 0
@@ -38,7 +24,7 @@ resource "aws_lambda_function" "chart_generator" {
   role          = aws_iam_role.lambda_exec_role.arn
   handler       = "com.nobudev7.ChartGeneratorHandler::handleRequest"
   runtime       = "java21"
-  memory_size   = 512
+  memory_size   = var.lambda_memory_size
   timeout       = 30
 
   filename         = "${path.module}/../backend/lambda/target/chart-generator-lambda-1.0-SNAPSHOT.jar"
@@ -65,16 +51,16 @@ resource "aws_cloudwatch_event_rule" "daily_chart_schedule" {
   schedule_expression = var.lambda_schedule_cron
 }
 
-# 3. Targets linking EventBridge to the Lambda function for each device and metric combination
+# 3. Targets linking EventBridge to the Lambda function (one target per device)
 resource "aws_cloudwatch_event_target" "trigger_lambda_target" {
-  for_each  = { for pair in local.lambda_target_pairs : pair.key => pair }
+  for_each  = var.enable_lambda ? toset([for dev_id in var.lambda_trigger_devices : tostring(dev_id)]) : []
   rule      = aws_cloudwatch_event_rule.daily_chart_schedule[0].name
-  target_id = each.value.key
+  target_id = "ChartGen-Dev${each.key}"
   arn       = aws_lambda_function.chart_generator[0].arn
 
   input = jsonencode({
-    "device_id" : each.value.device_id,
-    "metric_id" : each.value.metric_id,
+    "device_id" : tonumber(each.key),
+    "metrics"   : var.lambda_trigger_metrics,
     "target"    : "today",
     "timezone"  : var.lambda_trigger_timezone
   })
