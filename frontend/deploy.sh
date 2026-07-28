@@ -11,25 +11,23 @@
 #   -p, --profile <name>   AWS CLI profile (default: default)
 #   -r, --region  <name>   AWS region      (default: us-east-1)
 #   --cloudfront  <id>     CloudFront distribution ID to invalidate after deploy
+#   --include-output       Upload PNG and JSON chart files from frontend/public/output
 #   --dry-run              Print what would be uploaded without actually uploading
 #   -h, --help             Show this help
 #
 # EXAMPLES
-#   # Basic deploy
+#   # Basic deploy (frontend static assets only)
 #   ./deploy.sh --bucket pilambdachart-charts
+#
+#   # Deploy frontend static assets AND local output chart files
+#   ./deploy.sh --bucket pilambdachart-charts --include-output
 #
 #   # With CloudFront invalidation
 #   ./deploy.sh --bucket pilambdachart-charts --cloudfront E1ABCDEF123456
 #
-#   # Using environment variables
-#   S3_BUCKET=pilambdachart-charts CF_DIST_ID=E1ABCDEF ./deploy.sh
-#
-#   # Dry run first
-#   ./deploy.sh --bucket pilambdachart-charts --dry-run
-#
 # WHAT IT DOES
-#   1. Syncs frontend/public/ to s3://<bucket>/ with correct Content-Type headers
-#   2. Sets cache-control: long cache for static assets, no-cache for index.html
+#   1. Syncs frontend/public/ static website files (CSS, JS, index.html) to S3
+#   2. Optionally syncs frontend/public/output chart PNGs, JSONs, and file-list.json when --include-output is set
 #   3. Optionally creates a CloudFront invalidation to flush CDN edge caches
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -41,6 +39,7 @@ PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-1}"
 CF_DIST_ID="${CF_DIST_ID:-}"
 DRY_RUN=false
+INCLUDE_OUTPUT=false
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PUBLIC_DIR="$SCRIPT_DIR/public"
@@ -48,11 +47,12 @@ PUBLIC_DIR="$SCRIPT_DIR/public"
 # ── Argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -b|--bucket)     BUCKET="$2";    shift 2 ;;
-    -p|--profile)    PROFILE="$2";   shift 2 ;;
-    -r|--region)     REGION="$2";    shift 2 ;;
-    --cloudfront)    CF_DIST_ID="$2"; shift 2 ;;
-    --dry-run)       DRY_RUN=true;   shift   ;;
+    -b|--bucket)         BUCKET="$2";         shift 2 ;;
+    -p|--profile)        PROFILE="$2";        shift 2 ;;
+    -r|--region)         REGION="$2";         shift 2 ;;
+    --cloudfront)        CF_DIST_ID="$2";      shift 2 ;;
+    --include-output)     INCLUDE_OUTPUT=true; shift ;;
+    --dry-run)           DRY_RUN=true;        shift   ;;
     -h|--help)
       sed -n '/^# USAGE/,/^set -/p' "$0" | grep '^#' | sed 's/^# \?//'
       exit 0 ;;
@@ -79,6 +79,7 @@ printf "║  Source   : %-51s║\n" "$PUBLIC_DIR"
 printf "║  Bucket   : s3://%-46s║\n" "$BUCKET"
 printf "║  Profile  : %-51s║\n" "$PROFILE"
 printf "║  Region   : %-51s║\n" "$REGION"
+printf "║  Out Data : %-51s║\n" "$([ "$INCLUDE_OUTPUT" == true ] && echo 'Enabled (--include-output)' || echo 'Skipped (pass --include-output to upload)')"
 [[ -n "$CF_DIST_ID" ]] && printf "║  CloudFront: %-50s║\n" "$CF_DIST_ID"
 [[ "$DRY_RUN" == true ]] && printf "║  %-66s║\n" "⚠ DRY RUN — no files will be uploaded"
 echo "╚════════════════════════════════════════════════════════════════╝"
@@ -107,34 +108,38 @@ echo "▶ Uploading static JS assets — cache 1 year…"
   --cache-control "public, max-age=31536000, immutable" \
   --content-type "application/javascript"
 
-# ── Step 2: Upload chart PNGs and JSON sidecars — medium cache ─────────────
-echo "▶ Uploading chart PNGs — cache 1 hour…"
-"${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
-  ${DRY:+"$DRY"} \
-  --exclude "*" \
-  --include "*.png" \
-  --cache-control "public, max-age=3600" \
-  --content-type "image/png"
-
-echo "▶ Uploading chart data JSON sidecars — cache 1 hour…"
-"${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
-  ${DRY:+"$DRY"} \
-  --exclude "*" \
-  --exclude "file-list.json" \
-  --include "*.json" \
-  --cache-control "public, max-age=3600" \
-  --content-type "application/json"
-
-# ── Step 3: Upload file-list.json — short cache (updated by Lambda) ──────────
-echo "▶ Uploading file-list.json — cache 60 seconds…"
-if [[ -f "$PUBLIC_DIR/output/file-list.json" ]]; then
-  "${AWS_CMD[@]}" s3 cp "$PUBLIC_DIR/output/file-list.json" \
-    "s3://$BUCKET/output/file-list.json" \
+# ── Step 2: Upload chart PNGs and JSON sidecars (optional) ─────────────────
+if [[ "$INCLUDE_OUTPUT" == true ]]; then
+  echo "▶ Uploading chart PNGs — cache 1 hour…"
+  "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
     ${DRY:+"$DRY"} \
-    --cache-control "public, max-age=60" \
+    --exclude "*" \
+    --include "*.png" \
+    --cache-control "public, max-age=3600" \
+    --content-type "image/png"
+
+  echo "▶ Uploading chart data JSON sidecars — cache 1 hour…"
+  "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
+    ${DRY:+"$DRY"} \
+    --exclude "*" \
+    --exclude "file-list.json" \
+    --include "*.json" \
+    --cache-control "public, max-age=3600" \
     --content-type "application/json"
+
+  # ── Step 3: Upload file-list.json ─────────────────────────────────────────
+  echo "▶ Uploading file-list.json — cache 60 seconds…"
+  if [[ -f "$PUBLIC_DIR/output/file-list.json" ]]; then
+    "${AWS_CMD[@]}" s3 cp "$PUBLIC_DIR/output/file-list.json" \
+      "s3://$BUCKET/output/file-list.json" \
+      ${DRY:+"$DRY"} \
+      --cache-control "public, max-age=60" \
+      --content-type "application/json"
+  else
+    echo "  (no file-list.json found locally — skipped)"
+  fi
 else
-  echo "  (no file-list.json found locally — skipped)"
+  echo "▶ Skipping output folder chart assets upload (pass --include-output to enable)"
 fi
 
 # ── Step 4: Upload index.html — no cache (always fetch latest) ───────────────

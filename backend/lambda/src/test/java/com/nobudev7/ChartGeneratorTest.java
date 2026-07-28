@@ -122,7 +122,7 @@ public class ChartGeneratorTest {
                 data.add(new TelemetryData(start.plusHours(h), Math.round(val * 10.0) / 10.0));
             }
 
-            String dirPath = String.format("../../frontend/public/output/%d/%d/2026/07", deviceId, metId);
+            String dirPath = String.format("target/test-output/sample/%d/%d/2026/07", deviceId, metId);
             Files.createDirectories(Paths.get(dirPath));
             String pngPath = String.format("%s/%d-20260726.png", dirPath, metId);
             String jsonPath = String.format("%s/%d-20260726.json", dirPath, metId);
