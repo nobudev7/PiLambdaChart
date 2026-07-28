@@ -18,6 +18,7 @@ import com.google.gson.reflect.TypeToken;
 
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -153,14 +154,18 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                     continue;
                 }
 
-                // Generate JFreeChart image bytes
+                // Generate JFreeChart image bytes and JSON metadata sidecar
                 String chartTitle = String.format("%s - %s on %s", deviceName, metricName, targetDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
                 String yAxisLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
 
-                byte[] chartImage = chartGenerator.generateChart(data, chartTitle, yAxisLabel, chartType, metricId);
-                if (chartImage != null) {
+                ChartGenerator.RenderResult result = chartGenerator.generateChartWithMetadata(
+                        data, chartTitle, yAxisLabel, chartType, deviceId, metricId, metricName, unit);
+                if (result != null) {
                     // Upload PNG to S3
-                    String s3Key = uploadToS3(chartImage, deviceId, metricId, targetDate, dateStr, context);
+                    String s3Key = uploadToS3(result.getImageBytes(), deviceId, metricId, targetDate, dateStr, "image/png", ".png", context);
+                    // Upload JSON sidecar to S3
+                    uploadToS3(result.getJsonMetadata().getBytes(StandardCharsets.UTF_8),
+                            deviceId, metricId, targetDate, dateStr, "application/json", ".json", context);
                     // Update in-memory fileTree
                     updateFileListInMemory(fileTree, deviceId, metricId, s3Key, targetDate);
                     generatedCount++;
@@ -336,24 +341,24 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
     }
 
     /**
-     * Upload JFreeChart image bytes to S3 in hierarchical layout.
+     * Upload chart asset bytes to S3 in hierarchical layout.
      */
-    private String uploadToS3(byte[] content, int deviceId, int metricId, LocalDate date, String dateStr, Context context) {
+    private String uploadToS3(byte[] content, int deviceId, int metricId, LocalDate date, String dateStr, String contentType, String ext, Context context) {
         String year = String.valueOf(date.getYear());
         String month = date.format(DateTimeFormatter.ofPattern("MM"));
         
-        // Path: output/{deviceID}/{metricID}/{year}/{month}/{metricID}-YYYYMMDD.png
-        String s3Key = String.format("output/%d/%d/%s/%s/%d-%s.png", deviceId, metricId, year, month, metricId, dateStr);
+        // Path: output/{deviceID}/{metricID}/{year}/{month}/{metricID}-YYYYMMDD.<ext>
+        String s3Key = String.format("output/%d/%d/%s/%s/%d-%s%s", deviceId, metricId, year, month, metricId, dateStr, ext);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(BUCKET_NAME)
                 .key(s3Key)
-                .contentType("image/png")
+                .contentType(contentType)
                 .cacheControl("max-age=60")
                 .build();
 
         s3Client.putObject(putObjectRequest, RequestBody.fromBytes(content));
-        context.getLogger().log(String.format("Uploaded chart image: s3://%s/%s", BUCKET_NAME, s3Key));
+        context.getLogger().log(String.format("Uploaded asset: s3://%s/%s (%s)", BUCKET_NAME, s3Key, contentType));
         return s3Key;
     }
 

@@ -17,6 +17,10 @@ import org.jfree.chart.ui.TextAnchor;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
+import org.jfree.chart.ChartRenderingInfo;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import javax.imageio.ImageIO;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -31,13 +35,33 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Modern JFreeChart generator for PiLambdaChart metrics.
  * Uses a premium dark-slate design system matching high-end dashboards.
  */
 public class ChartGenerator {
+
+    public static class RenderResult {
+        private final byte[] imageBytes;
+        private final String jsonMetadata;
+
+        public RenderResult(byte[] imageBytes, String jsonMetadata) {
+            this.imageBytes = imageBytes;
+            this.jsonMetadata = jsonMetadata;
+        }
+
+        public byte[] getImageBytes() {
+            return imageBytes;
+        }
+
+        public String getJsonMetadata() {
+            return jsonMetadata;
+        }
+    }
 
     // Tailored color palette
     private static final Color BG_OUTER = new Color(15, 23, 42);      // Slate 900
@@ -53,7 +77,7 @@ public class ChartGenerator {
     private static final Color ACCENT_PURPLE = new Color(192, 132, 252); // Purple 400 (e.g. Humidity)
     private static final Color ACCENT_ORANGE = new Color(251, 146, 60); // Orange 400 (e.g. Motion Count)
 
-    public byte[] generateChart(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int metricId) throws IOException {
+    public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit) throws IOException {
         if (data == null || data.isEmpty()) {
             return null;
         }
@@ -101,7 +125,7 @@ public class ChartGenerator {
         plot.setRangeGridlinePaint(GRID_LINE);
         plot.setRangeGridlineStroke(new BasicStroke(1.0f));
         plot.setOutlineVisible(false);
-        plot.setInsets(new RectangleInsets(10, 15, 10, 15));
+        plot.setInsets(new RectangleInsets(10, 15, 10, 35));
 
         // Determine dynamic accent color depending on Metric ID
         Color accentColor;
@@ -190,6 +214,8 @@ public class ChartGenerator {
         domainAxis.setTickLabelFont(new Font("SansSerif", Font.PLAIN, 22));
         domainAxis.setTickLabelPaint(TEXT_TICK);
         domainAxis.setAxisLineVisible(false);
+        domainAxis.setLowerMargin(0.0);
+        domainAxis.setUpperMargin(0.0);
 
         int width = 1600;
         int height = 900;
@@ -206,12 +232,56 @@ public class ChartGenerator {
         g2.setColor(BG_OUTER);
         g2.fillRect(0, 0, width + borderPadding, height + borderPadding);
 
-        chart.draw(g2, new Rectangle2D.Double(0, borderPadding, width, height));
+        ChartRenderingInfo info = new ChartRenderingInfo();
+        chart.draw(g2, new Rectangle2D.Double(0, borderPadding, width, height), info);
         g2.dispose();
 
         ByteArrayOutputStream chartByteStream = new ByteArrayOutputStream();
         ImageIO.write(image, "png", chartByteStream);
-        return chartByteStream.toByteArray();
+        byte[] imageBytes = chartByteStream.toByteArray();
+
+        Rectangle2D dataArea = info.getPlotInfo().getDataArea();
+
+        Map<String, Object> metaMap = new HashMap<>();
+        metaMap.put("deviceId", deviceId);
+        metaMap.put("metricId", metricId);
+        metaMap.put("metricName", metricName != null ? metricName : "Metric " + metricId);
+        metaMap.put("unit", unit != null ? unit : "");
+
+        Map<String, Object> plotArea = new HashMap<>();
+        plotArea.put("x", dataArea.getX());
+        plotArea.put("y", dataArea.getY());
+        plotArea.put("width", dataArea.getWidth());
+        plotArea.put("height", dataArea.getHeight());
+        plotArea.put("imageWidth", width + borderPadding);
+        plotArea.put("imageHeight", height + borderPadding);
+        plotArea.put("yLowerBound", lowerBound);
+        plotArea.put("yUpperBound", upperBound);
+        metaMap.put("plotArea", plotArea);
+
+        List<Map<String, Object>> points = new ArrayList<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+        for (int i = 0; i < data.size(); i++) {
+            TelemetryData d = data.get(i);
+            Map<String, Object> p = new HashMap<>();
+            p.put("index", i);
+            p.put("iso", d.getTime().toString());
+            p.put("epochMs", d.getTime().toInstant().toEpochMilli());
+            p.put("time", d.getTime().format(fmt));
+            p.put("value", d.getValue());
+            points.add(p);
+        }
+        metaMap.put("points", points);
+
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String jsonMetadata = gson.toJson(metaMap);
+
+        return new RenderResult(imageBytes, jsonMetadata);
+    }
+
+    public byte[] generateChart(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int metricId) throws IOException {
+        RenderResult result = generateChartWithMetadata(data, title, yAxisLabel, chartType, 0, metricId, null, null);
+        return result != null ? result.getImageBytes() : null;
     }
 
     public void generateChart(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int metricId, String filePath) throws IOException {

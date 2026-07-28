@@ -507,6 +507,93 @@ body.sidebar-collapsed .main-wrapper { margin-left: var(--sidebar-collapsed); }
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CROSSHAIR & TOOLTIP SYSTEM
+════════════════════════════════════════════════════════════════ */
+.crosshair-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: rgba(56, 189, 248, 0.85);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.crosshair-line.active {
+  opacity: 1;
+}
+
+.crosshair-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 10px #38bdf8;
+  pointer-events: none;
+  z-index: 11;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.crosshair-dot.active {
+  opacity: 1;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+  transform: translate(-50%, -125%);
+}
+
+.chart-tooltip.active {
+  opacity: 1;
+}
+
+.chart-tooltip .tt-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.chart-tooltip .tt-val {
+  font-weight: 600;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modal-img-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 95vw;
+  max-height: 84vh;
+  overflow: hidden;
 }
 
 .tile-img {

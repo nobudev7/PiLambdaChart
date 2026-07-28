@@ -220,6 +220,24 @@ function renderMonthView(year, month) {
   });
 }
 
+/* ════════════════════════════════════════════════════════════════
+   JSON DATA SIDECAR FETCH & CACHE
+════════════════════════════════════════════════════════════════ */
+const jsonCache = new Map();
+
+async function fetchChartJson(url) {
+  if (jsonCache.has(url)) return jsonCache.get(url);
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    jsonCache.set(url, data);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
 /* ── Build one day card ─────────────────────────────────────────── */
 function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
   const card = document.createElement('div');
@@ -261,13 +279,16 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
   tilesGrid.style.setProperty('--tile-cols', cols);
 
   const [y, m, d] = dateStr.split('-');
+  const tilesList = [];
 
   metricIds.forEach(metId => {
     const meta = METRIC_META[metId] || { name: `Metric ${metId}`, unit: '', icon: '📊' };
     const imgUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${y}/${m}/${metId}-${y}${m}${d}.png`;
+    const jsonUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${y}/${m}/${metId}-${y}${m}${d}.json`;
 
     const tile = document.createElement('div');
     tile.className = 'chart-tile';
+    tile.dataset.metId = metId;
 
     tile.innerHTML =
       `<div class="tile-header">
@@ -281,15 +302,20 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
          <img class="tile-img loading"
               alt="${meta.name} chart for ${dateStr}"
               loading="lazy" />
+         <div class="crosshair-line"></div>
+         <div class="crosshair-dot"></div>
+         <div class="chart-tooltip"></div>
        </div>`;
 
     tilesGrid.appendChild(tile);
+    tilesList.push({ tile, metId, meta, imgUrl, jsonUrl });
 
     // Click tile to enlarge/expand chart to browser window size
     tile.addEventListener('click', () => {
+      const imgEl = tile.querySelector('.tile-img');
       if (imgEl.src && !imgEl.classList.contains('loading')) {
         const titleText = `Device ${deviceId} · ${meta.name} — ${formatDate(dateStr)}`;
-        openChartModal(imgUrl, titleText);
+        openChartModal(imgUrl, jsonUrl, titleText, meta);
       }
     });
 
@@ -307,10 +333,154 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
         `<span class="tile-error">Chart not available</span>`;
     };
     loader.src = imgUrl;
+
+    // Fetch JSON sidecar
+    fetchChartJson(jsonUrl).then(data => {
+      if (data) tile.chartData = data;
+    });
   });
+
+  // Attach synchronized mouse tracking across tiles in day card
+  const handlePointerMove = e => {
+    const hoveredTile = e.target.closest('.chart-tile');
+    if (!hoveredTile || !hoveredTile.chartData) return;
+
+    const data = hoveredTile.chartData;
+    const points = data.points;
+    const plotArea = data.plotArea;
+    if (!points || points.length === 0 || !plotArea) return;
+
+    const imgEl = hoveredTile.querySelector('.tile-img');
+    if (!imgEl || imgEl.classList.contains('loading')) return;
+
+    const imgRect = imgEl.getBoundingClientRect();
+    const plotLeftPx = imgRect.left + imgRect.width * (plotArea.x / plotArea.imageWidth);
+    const plotWidthPx = imgRect.width * (plotArea.width / plotArea.imageWidth);
+
+    if (plotWidthPx <= 0) return;
+
+    let relX = (e.clientX - plotLeftPx) / plotWidthPx;
+    relX = Math.max(0, Math.min(1, relX));
+
+    const minTimeMs = points[0].epochMs;
+    const maxTimeMs = points[points.length - 1].epochMs;
+    const targetTimeMs = minTimeMs + relX * (maxTimeMs - minTimeMs);
+
+    tilesList.forEach(({ tile, meta }) => {
+      updateTileCrosshair(tile, targetTimeMs, meta);
+    });
+  };
+
+  const handlePointerLeave = () => {
+    tilesList.forEach(({ tile }) => {
+      hideTileCrosshair(tile);
+    });
+  };
+
+  card.addEventListener('mousemove', handlePointerMove);
+  card.addEventListener('mouseleave', handlePointerLeave);
 
   card.appendChild(tilesGrid);
   return card;
+}
+
+function updateTileCrosshair(tile, targetTimeMs, meta) {
+  const data = tile.chartData;
+  if (!data || !data.points || data.points.length === 0 || !data.plotArea) {
+    hideTileCrosshair(tile);
+    return;
+  }
+
+  const wrapper = tile.querySelector('.tile-img-wrapper');
+  const imgEl = tile.querySelector('.tile-img');
+  const lineEl = tile.querySelector('.crosshair-line');
+  const dotEl = tile.querySelector('.crosshair-dot');
+  const ttEl = tile.querySelector('.chart-tooltip');
+
+  if (!wrapper || !imgEl || imgEl.classList.contains('loading')) {
+    hideTileCrosshair(tile);
+    return;
+  }
+
+  const points = data.points;
+  const plotArea = data.plotArea;
+  const N = points.length;
+
+  let bestPt = points[0];
+  let bestIdx = 0;
+  let minDiff = Math.abs(bestPt.epochMs - targetTimeMs);
+  for (let i = 1; i < points.length; i++) {
+    const diff = Math.abs(points[i].epochMs - targetTimeMs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestPt = points[i];
+      bestIdx = i;
+    }
+  }
+
+  const ptIndex = (bestPt.index !== undefined && bestPt.index !== null) ? bestPt.index : bestIdx;
+  const ptFractionX = N > 1 ? (ptIndex / (N - 1)) : 0.5;
+
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const imgRect = imgEl.getBoundingClientRect();
+
+  const plotLeftPx = imgRect.left + imgRect.width * (plotArea.x / plotArea.imageWidth);
+  const plotWidthPx = imgRect.width * (plotArea.width / plotArea.imageWidth);
+  const plotTopPx = imgRect.top + imgRect.height * (plotArea.y / plotArea.imageHeight);
+  const plotHeightPx = imgRect.height * (plotArea.height / plotArea.imageHeight);
+
+  const lineX = (plotLeftPx - wrapperRect.left) + ptFractionX * plotWidthPx;
+
+  let valRatio = 0.5;
+  if (plotArea.yLowerBound !== undefined && plotArea.yUpperBound !== undefined && plotArea.yUpperBound > plotArea.yLowerBound) {
+    valRatio = (bestPt.value - plotArea.yLowerBound) / (plotArea.yUpperBound - plotArea.yLowerBound);
+  } else {
+    let minVal = points[0].value;
+    let maxVal = points[0].value;
+    points.forEach(p => {
+      if (p.value < minVal) minVal = p.value;
+      if (p.value > maxVal) maxVal = p.value;
+    });
+    const valSpan = maxVal - minVal;
+    valRatio = valSpan > 0 ? (bestPt.value - minVal) / valSpan : 0.5;
+  }
+  valRatio = Math.max(0, Math.min(1, valRatio));
+  const dotY = (plotTopPx - wrapperRect.top) + (1 - valRatio) * plotHeightPx;
+
+  if (lineEl) {
+    lineEl.style.left = `${lineX}px`;
+    lineEl.classList.add('active');
+  }
+
+  if (dotEl) {
+    dotEl.style.left = `${lineX}px`;
+    dotEl.style.top = `${dotY}px`;
+    dotEl.classList.add('active');
+  }
+
+  if (ttEl) {
+    const icon = meta.icon || '📊';
+    const unit = data.unit || meta.unit || '';
+    ttEl.innerHTML = `<div class="tt-time">${bestPt.time}</div><div class="tt-val"><span>${icon}</span><span>${bestPt.value} ${unit}</span></div>`;
+    ttEl.style.left = `${lineX}px`;
+    ttEl.style.top = `${dotY}px`;
+
+    const wrapperWidth = wrapperRect.width;
+    let transformX = '-50%';
+    if (lineX > wrapperWidth - 95) {
+      transformX = '-100%';
+    } else if (lineX < 95) {
+      transformX = '0%';
+    }
+    ttEl.style.transform = `translate(${transformX}, -125%)`;
+    ttEl.classList.add('active');
+  }
+}
+
+function hideTileCrosshair(tile) {
+  tile.querySelector('.crosshair-line')?.classList.remove('active');
+  tile.querySelector('.crosshair-dot')?.classList.remove('active');
+  tile.querySelector('.chart-tooltip')?.classList.remove('active');
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -339,15 +509,30 @@ function setupChartModal() {
   });
 }
 
-function openChartModal(imgSrc, titleText) {
+function openChartModal(imgSrc, jsonUrl, titleText, meta) {
   const modal = $('chart-modal');
   const modalImg = $('chart-modal-img');
   const modalTitle = $('chart-modal-title');
+  const wrapper = $('modal-img-wrapper');
 
-  if (!modal || !modalImg) return;
+  if (!modal || !modalImg || !wrapper) return;
 
   modalImg.src = imgSrc;
   if (modalTitle) modalTitle.textContent = titleText || '';
+
+  // Clean previous crosshair elements
+  wrapper.querySelectorAll('.crosshair-line, .crosshair-dot, .chart-tooltip').forEach(el => el.remove());
+
+  const lineEl = document.createElement('div');
+  lineEl.className = 'crosshair-line';
+  const dotEl = document.createElement('div');
+  dotEl.className = 'crosshair-dot';
+  const ttEl = document.createElement('div');
+  ttEl.className = 'chart-tooltip';
+
+  wrapper.appendChild(lineEl);
+  wrapper.appendChild(dotEl);
+  wrapper.appendChild(ttEl);
 
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -356,6 +541,99 @@ function openChartModal(imgSrc, titleText) {
   void modal.offsetWidth;
   modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
+
+  if (jsonUrl) {
+    fetchChartJson(jsonUrl).then(data => {
+      if (!data || !data.points || data.points.length === 0 || !data.plotArea) return;
+
+      const handleModalMove = e => {
+        e.stopPropagation();
+        const imgRect = modalImg.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const plotArea = data.plotArea;
+        const points = data.points;
+        const N = points.length;
+
+        const plotLeftPx = imgRect.left + imgRect.width * (plotArea.x / plotArea.imageWidth);
+        const plotWidthPx = imgRect.width * (plotArea.width / plotArea.imageWidth);
+        const plotTopPx = imgRect.top + imgRect.height * (plotArea.y / plotArea.imageHeight);
+        const plotHeightPx = imgRect.height * (plotArea.height / plotArea.imageHeight);
+
+        if (plotWidthPx <= 0) return;
+
+        let relX = (e.clientX - plotLeftPx) / plotWidthPx;
+        relX = Math.max(0, Math.min(1, relX));
+
+        const minTimeMs = points[0].epochMs;
+        const maxTimeMs = points[points.length - 1].epochMs;
+        const targetTimeMs = minTimeMs + relX * (maxTimeMs - minTimeMs);
+
+        let bestPt = points[0];
+        let bestIdx = 0;
+        let minDiff = Math.abs(bestPt.epochMs - targetTimeMs);
+        for (let i = 1; i < points.length; i++) {
+          const diff = Math.abs(points[i].epochMs - targetTimeMs);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestPt = points[i];
+            bestIdx = i;
+          }
+        }
+
+        const ptIndex = (bestPt.index !== undefined && bestPt.index !== null) ? bestPt.index : bestIdx;
+        const ptFractionX = N > 1 ? (ptIndex / (N - 1)) : 0.5;
+        const lineX = (plotLeftPx - wrapperRect.left) + ptFractionX * plotWidthPx;
+
+        let valRatio = 0.5;
+        if (plotArea.yLowerBound !== undefined && plotArea.yUpperBound !== undefined && plotArea.yUpperBound > plotArea.yLowerBound) {
+          valRatio = (bestPt.value - plotArea.yLowerBound) / (plotArea.yUpperBound - plotArea.yLowerBound);
+        } else {
+          let minVal = points[0].value;
+          let maxVal = points[0].value;
+          points.forEach(p => {
+            if (p.value < minVal) minVal = p.value;
+            if (p.value > maxVal) maxVal = p.value;
+          });
+          const valSpan = maxVal - minVal;
+          valRatio = valSpan > 0 ? (bestPt.value - minVal) / valSpan : 0.5;
+        }
+        valRatio = Math.max(0, Math.min(1, valRatio));
+        const dotY = (plotTopPx - wrapperRect.top) + (1 - valRatio) * plotHeightPx;
+
+        lineEl.style.left = `${lineX}px`;
+        lineEl.classList.add('active');
+
+        dotEl.style.left = `${lineX}px`;
+        dotEl.style.top = `${dotY}px`;
+        dotEl.classList.add('active');
+
+        const icon = (meta && meta.icon) ? meta.icon : '📊';
+        const unit = data.unit || (meta && meta.unit) || '';
+        ttEl.innerHTML = `<div class="tt-time">${bestPt.time}</div><div class="tt-val"><span>${icon}</span><span>${bestPt.value} ${unit}</span></div>`;
+        ttEl.style.left = `${lineX}px`;
+        ttEl.style.top = `${dotY}px`;
+
+        const wrapperWidth = wrapperRect.width;
+        let transformX = '-50%';
+        if (lineX > wrapperWidth - 110) {
+          transformX = '-100%';
+        } else if (lineX < 110) {
+          transformX = '0%';
+        }
+        ttEl.style.transform = `translate(${transformX}, -125%)`;
+        ttEl.classList.add('active');
+      };
+
+      const handleModalLeave = () => {
+        lineEl.classList.remove('active');
+        dotEl.classList.remove('active');
+        ttEl.classList.remove('active');
+      };
+
+      wrapper.onmousemove = handleModalMove;
+      wrapper.onmouseleave = handleModalLeave;
+    });
+  }
 }
 
 function closeChartModal() {

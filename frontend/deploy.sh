@@ -107,7 +107,7 @@ echo "▶ Uploading static JS assets — cache 1 year…"
   --cache-control "public, max-age=31536000, immutable" \
   --content-type "application/javascript"
 
-# ── Step 2: Upload chart PNGs — medium cache ─────────────────────────────────
+# ── Step 2: Upload chart PNGs and JSON sidecars — medium cache ─────────────
 echo "▶ Uploading chart PNGs — cache 1 hour…"
 "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
   ${DRY:+"$DRY"} \
@@ -115,6 +115,15 @@ echo "▶ Uploading chart PNGs — cache 1 hour…"
   --include "*.png" \
   --cache-control "public, max-age=3600" \
   --content-type "image/png"
+
+echo "▶ Uploading chart data JSON sidecars — cache 1 hour…"
+"${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
+  ${DRY:+"$DRY"} \
+  --exclude "*" \
+  --exclude "file-list.json" \
+  --include "*.json" \
+  --cache-control "public, max-age=3600" \
+  --content-type "application/json"
 
 # ── Step 3: Upload file-list.json — short cache (updated by Lambda) ──────────
 echo "▶ Uploading file-list.json — cache 60 seconds…"

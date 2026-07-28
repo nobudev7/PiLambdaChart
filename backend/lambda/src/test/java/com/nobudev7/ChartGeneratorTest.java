@@ -77,4 +77,66 @@ public class ChartGeneratorTest {
         byte[] result = generator.generateChart(new ArrayList<>(), "Empty Chart", "Value", "XYLineChart", 1);
         assertNull(result, "Chart generation with empty dataset should return null");
     }
+
+    @Test
+    public void testGenerateChartWithMetadata_Success() throws IOException {
+        List<TelemetryData> data = new ArrayList<>();
+        ZonedDateTime start = ZonedDateTime.of(LocalDate.of(2026, 7, 27), java.time.LocalTime.MIDNIGHT, ZONE_ID);
+        for (int h = 0; h < 12; h++) {
+            data.add(new TelemetryData(start.plusHours(h), 22.0 + h));
+        }
+
+        ChartGenerator generator = new ChartGenerator();
+        ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
+                data, "Device 1 - Temperature", "Temperature (°C)", "XYLineChart", 1, 1, "Temperature", "°C");
+
+        assertNotNull(result, "RenderResult should not be null");
+        assertTrue(result.getImageBytes().length > 0, "PNG image bytes should not be empty");
+        assertNotNull(result.getJsonMetadata(), "JSON metadata should not be null");
+        assertTrue(result.getJsonMetadata().contains("plotArea"), "Metadata JSON should contain plotArea");
+        assertTrue(result.getJsonMetadata().contains("points"), "Metadata JSON should contain points");
+    }
+
+    @Test
+    public void testGenerateSampleFrontendAssets() throws IOException {
+        ChartGenerator generator = new ChartGenerator();
+        ZonedDateTime start = ZonedDateTime.of(LocalDate.of(2026, 7, 26), java.time.LocalTime.MIDNIGHT, ZONE_ID);
+
+        int deviceId = 2;
+        int[] metricIds = {1, 2, 3, 4};
+        String[] names = {"Temperature", "Humidity", "Ambient Light", "Motion Count"};
+        String[] units = {"°C", "%", "Lux", "triggers/min"};
+        String[] types = {"XYLineChart", "XYLineChart", "XYAreaChart", "XYAreaChart"};
+
+        for (int i = 0; i < metricIds.length; i++) {
+            int metId = metricIds[i];
+            List<TelemetryData> data = new ArrayList<>();
+            for (int h = 0; h < 24; h++) {
+                double val = switch (metId) {
+                    case 1 -> 20.0 + Math.sin(h * 0.4) * 4.0;
+                    case 2 -> 50.0 + Math.cos(h * 0.3) * 10.0;
+                    case 3 -> Math.max(0, Math.sin((h - 6) * 0.25) * 400.0);
+                    case 4 -> Math.max(0, (h % 3 == 0 ? 5 + (h % 7) : 0));
+                    default -> 10.0;
+                };
+                data.add(new TelemetryData(start.plusHours(h), Math.round(val * 10.0) / 10.0));
+            }
+
+            String dirPath = String.format("../../frontend/public/output/%d/%d/2026/07", deviceId, metId);
+            Files.createDirectories(Paths.get(dirPath));
+            String pngPath = String.format("%s/%d-20260726.png", dirPath, metId);
+            String jsonPath = String.format("%s/%d-20260726.json", dirPath, metId);
+
+            String title = String.format("Device %d — %s on 2026/07/26", deviceId, names[i]);
+            String yLabel = units[i].isEmpty() ? names[i] : String.format("%s (%s)", names[i], units[i]);
+
+            ChartGenerator.RenderResult res = generator.generateChartWithMetadata(
+                    data, title, yLabel, types[i], deviceId, metId, names[i], units[i]);
+
+            if (res != null) {
+                Files.write(Paths.get(pngPath), res.getImageBytes());
+                Files.writeString(Paths.get(jsonPath), res.getJsonMetadata(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+    }
 }

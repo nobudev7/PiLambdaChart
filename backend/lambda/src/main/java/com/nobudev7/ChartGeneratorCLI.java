@@ -246,11 +246,20 @@ public class ChartGeneratorCLI {
         String fileKey  = String.format("%d/%d/%s/%s/%d-%s.png", deviceId, metricId, year, month, metricId, dateStr);
         Files.createDirectories(Paths.get(dirPath));
 
-        // 4. Render and save
-        generator.generateChart(data, title, yLabel, chartType, metricId, filePath);
+        // 4. Render and save PNG and JSON sidecar
+        String jsonPath = String.format("%s/%d-%s.json", dirPath, metricId, dateStr);
+        String metricNameOnly = yLabel.replaceFirst(" \\(.*\\)$", "");
+        String unitOnly = yLabel.contains("(") ? yLabel.substring(yLabel.indexOf("(") + 1, yLabel.indexOf(")")) : "";
+
+        ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
+                data, title, yLabel, chartType, deviceId, metricId, metricNameOnly, unitOnly);
+        if (result != null) {
+            Files.write(Paths.get(filePath), result.getImageBytes());
+            Files.writeString(Paths.get(jsonPath), result.getJsonMetadata(), java.nio.charset.StandardCharsets.UTF_8);
+        }
 
         File outFile = new File(filePath);
-        System.out.printf("→ SAVED  (%d pts, %d KB)  %s%n",
+        System.out.printf("→ SAVED  (%d pts, %d KB)  %s (+ .json sidecar)%n",
                 data.size(), outFile.length() / 1024, filePath);
         return fileKey;
     }
