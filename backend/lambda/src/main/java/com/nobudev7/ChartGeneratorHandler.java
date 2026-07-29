@@ -142,10 +142,10 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             for (int metricId : metricIds) {
                 Map<String, String> metricMetadata = fetchMetadata("METRIC", metricId);
 
-                String metricName = getFallbackMetricName(metricId, metricMetadata.getOrDefault("Name", "Metric " + metricId));
-                String unit = getFallbackMetricUnit(metricId, metricMetadata.getOrDefault("Unit", ""));
+                String metricName = metricMetadata.getOrDefault("Name", "Metric " + metricId);
+                String unit = metricMetadata.getOrDefault("Unit", "");
                 String chartType = metricMetadata.getOrDefault("ChartType", "XYLineChart");
-                String icon = metricMetadata.getOrDefault("Icon", getFallbackMetricIcon(metricId));
+                String icon = metricMetadata.getOrDefault("Icon", "📊");
                 Double minYRange = null;
                 if (metricMetadata.containsKey("MinYRange")) {
                     try {
@@ -267,42 +267,6 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             System.err.println("Could not read metadata from table " + METADATA_TABLE + " (using code fallback): " + e.getMessage());
         }
         return result;
-    }
-
-    // Code fallbacks matching config.yaml.example if metadata table is missing/empty
-    private String getFallbackMetricName(int metricId, String defaultVal) {
-        if (!defaultVal.startsWith("Metric ")) return defaultVal;
-        return switch (metricId) {
-            case 1 -> "Temperature";
-            case 2 -> "Humidity";
-            case 3 -> "Ambient Light";
-            case 4 -> "Motion Count";
-            case 5 -> "Water Level";
-            default -> defaultVal;
-        };
-    }
-
-    private String getFallbackMetricUnit(int metricId, String defaultVal) {
-        if (!defaultVal.isEmpty()) return defaultVal;
-        return switch (metricId) {
-            case 1 -> "°C";
-            case 2 -> "%";
-            case 3 -> "Lux";
-            case 4 -> "triggers/min";
-            case 5 -> "cm";
-            default -> "";
-        };
-    }
-
-    private String getFallbackMetricIcon(int metricId) {
-        return switch (metricId) {
-            case 1 -> "🌡️";
-            case 2 -> "💧";
-            case 3 -> "☀️";
-            case 4 -> "🔍";
-            case 5 -> "📏";
-            default -> "📊";
-        };
     }
 
     /**
