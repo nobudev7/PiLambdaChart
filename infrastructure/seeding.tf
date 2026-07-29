@@ -1,12 +1,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Default Metadata Seed Items for DynamoDB IoT_Metadata
 # ─────────────────────────────────────────────────────────────────────────────
-# Automatically inserts the default devices and metric configurations matching
-# edge/config.yaml.example into the metadata registry table.
+# Automatically inserts default device and metric configurations into the
+# metadata registry table when enable_metadata_seeding = true.
+# Set enable_metadata_seeding = false if metadata is managed dynamically.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Devices
 resource "aws_dynamodb_table_item" "device_1" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -20,6 +22,7 @@ resource "aws_dynamodb_table_item" "device_1" {
 }
 
 resource "aws_dynamodb_table_item" "device_2" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -34,6 +37,7 @@ resource "aws_dynamodb_table_item" "device_2" {
 
 # Metrics (Matching IDs 1-5 from config.yaml.example)
 resource "aws_dynamodb_table_item" "metric_1" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -44,10 +48,12 @@ resource "aws_dynamodb_table_item" "metric_1" {
     Name       = { S = "Temperature" }
     Unit       = { S = "°C" }
     ChartType  = { S = "XYLineChart" }
+    MinYRange  = { N = "6" }
   })
 }
 
 resource "aws_dynamodb_table_item" "metric_2" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -62,6 +68,7 @@ resource "aws_dynamodb_table_item" "metric_2" {
 }
 
 resource "aws_dynamodb_table_item" "metric_3" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -76,6 +83,7 @@ resource "aws_dynamodb_table_item" "metric_3" {
 }
 
 resource "aws_dynamodb_table_item" "metric_4" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
@@ -90,6 +98,7 @@ resource "aws_dynamodb_table_item" "metric_4" {
 }
 
 resource "aws_dynamodb_table_item" "metric_5" {
+  count      = var.enable_metadata_seeding ? 1 : 0
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key

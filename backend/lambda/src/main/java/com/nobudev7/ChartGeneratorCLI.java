@@ -250,9 +250,10 @@ public class ChartGeneratorCLI {
         String jsonPath = String.format("%s/%d-%s.json", dirPath, metricId, dateStr);
         String metricNameOnly = yLabel.replaceFirst(" \\(.*\\)$", "");
         String unitOnly = yLabel.contains("(") ? yLabel.substring(yLabel.indexOf("(") + 1, yLabel.indexOf(")")) : "";
+        Double minYRange = fetchMinYRange(db, metricId);
 
         ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
-                data, title, yLabel, chartType, deviceId, metricId, metricNameOnly, unitOnly);
+                data, title, yLabel, chartType, deviceId, metricId, metricNameOnly, unitOnly, minYRange);
         if (result != null) {
             Files.write(Paths.get(filePath), result.getImageBytes());
             Files.writeString(Paths.get(jsonPath), result.getJsonMetadata(), java.nio.charset.StandardCharsets.UTF_8);
@@ -466,5 +467,28 @@ public class ChartGeneratorCLI {
               TELEMETRY_TABLE_NAME   Override DynamoDB table name
               TEST_TIMEZONE          Override default timezone
             """);
+    }
+
+    private static Double fetchMinYRange(DynamoDbClient ddbClient, int metricId) {
+        if (ddbClient == null) return null;
+        try {
+            String metadataTable = envOrDefault("METADATA_TABLE_NAME", "IoT_Metadata");
+            software.amazon.awssdk.services.dynamodb.model.GetItemRequest req =
+                software.amazon.awssdk.services.dynamodb.model.GetItemRequest.builder()
+                    .tableName(metadataTable)
+                    .key(Map.of(
+                        "EntityType", AttributeValue.builder().s("METRIC").build(),
+                        "ID", AttributeValue.builder().n(String.valueOf(metricId)).build()
+                    ))
+                    .build();
+            var resp = ddbClient.getItem(req);
+            if (resp.hasItem() && resp.item() != null && resp.item().containsKey("MinYRange")) {
+                AttributeValue av = resp.item().get("MinYRange");
+                if (av.n() != null) {
+                    return Double.parseDouble(av.n());
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

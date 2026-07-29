@@ -20,6 +20,7 @@ metadata_table_name  = "IoT_Metadata"
 
 # ── Feature Flags ─────────────────────────────────────────────────────────────
 enable_point_in_time_recovery = false   # Set to true for staging/prod
+enable_metadata_seeding       = true    # Set to false if metadata is managed dynamically out-of-band
 
 # ── CloudFront CDN & Access Protection ─────────────────────────────────────────
 enable_cloudfront            = false    # Set to true to deploy CloudFront CDN

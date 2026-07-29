@@ -78,6 +78,10 @@ public class ChartGenerator {
     private static final Color ACCENT_ORANGE = new Color(251, 146, 60); // Orange 400 (e.g. Motion Count)
 
     public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit) throws IOException {
+        return generateChartWithMetadata(data, title, yAxisLabel, chartType, deviceId, metricId, metricName, unit, null);
+    }
+
+    public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit, Double minYRange) throws IOException {
         if (data == null || data.isEmpty()) {
             return null;
         }
@@ -172,19 +176,31 @@ public class ChartGenerator {
         rangeAxis.setTickLabelPaint(TEXT_TICK);
         rangeAxis.setAxisLineVisible(false);
 
-        // Adjust bounds with dynamic spacing
+        // Adjust bounds with dynamic spacing or configured minimum Y range
         double span = maxValue - minValue;
-        double margin = span * 0.15;
-        if (margin == 0) {
-            margin = maxValue != 0 ? Math.abs(maxValue) * 0.15 : 1.0;
+        double lowerBound;
+        double upperBound;
+
+        if (minYRange != null && minYRange > 0 && span < minYRange) {
+            double mid = (minValue + maxValue) / 2.0;
+            lowerBound = mid - (minYRange / 2.0);
+            upperBound = mid + (minYRange / 2.0);
+        } else {
+            double margin = span * 0.15;
+            if (margin == 0) {
+                margin = maxValue != 0 ? Math.abs(maxValue) * 0.15 : 1.0;
+            }
+            lowerBound = minValue - margin;
+            upperBound = maxValue + margin;
         }
 
-        double lowerBound = minValue - margin;
         // Don't go below zero for strictly positive metrics
         if (minValue >= 0.0 && lowerBound < 0.0) {
             lowerBound = 0.0;
+            if (minYRange != null && minYRange > 0) {
+                upperBound = Math.max(upperBound, minYRange);
+            }
         }
-        double upperBound = maxValue + margin;
 
         rangeAxis.setLowerBound(lowerBound);
         rangeAxis.setUpperBound(upperBound);
@@ -257,6 +273,9 @@ public class ChartGenerator {
         plotArea.put("imageHeight", height + borderPadding);
         plotArea.put("yLowerBound", lowerBound);
         plotArea.put("yUpperBound", upperBound);
+        if (minYRange != null && minYRange > 0) {
+            plotArea.put("minYRange", minYRange);
+        }
         metaMap.put("plotArea", plotArea);
 
         List<Map<String, Object>> points = new ArrayList<>();

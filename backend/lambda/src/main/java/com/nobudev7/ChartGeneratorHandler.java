@@ -145,6 +145,12 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 String metricName = getFallbackMetricName(metricId, metricMetadata.getOrDefault("Name", "Metric " + metricId));
                 String unit = getFallbackMetricUnit(metricId, metricMetadata.getOrDefault("Unit", ""));
                 String chartType = metricMetadata.getOrDefault("ChartType", "XYLineChart");
+                Double minYRange = null;
+                if (metricMetadata.containsKey("MinYRange")) {
+                    try {
+                        minYRange = Double.parseDouble(metricMetadata.get("MinYRange"));
+                    } catch (NumberFormatException ignored) {}
+                }
 
                 // Query DynamoDB for telemetry data
                 List<TelemetryData> data = fetchTelemetryData(deviceId, metricId, targetDate, zoneId, context);
@@ -159,7 +165,7 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 String yAxisLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
 
                 ChartGenerator.RenderResult result = chartGenerator.generateChartWithMetadata(
-                        data, chartTitle, yAxisLabel, chartType, deviceId, metricId, metricName, unit);
+                        data, chartTitle, yAxisLabel, chartType, deviceId, metricId, metricName, unit, minYRange);
                 if (result != null) {
                     // Upload PNG to S3
                     String s3Key = uploadToS3(result.getImageBytes(), deviceId, metricId, targetDate, dateStr, "image/png", ".png", context);
@@ -249,6 +255,9 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 if (item.containsKey("Unit")) result.put("Unit", item.get("Unit").s());
                 if (item.containsKey("ChartType")) result.put("ChartType", item.get("ChartType").s());
                 if (item.containsKey("Location")) result.put("Location", item.get("Location").s());
+                if (item.containsKey("MinYRange") && item.get("MinYRange").n() != null) {
+                    result.put("MinYRange", item.get("MinYRange").n());
+                }
             }
         } catch (Exception e) {
             // Logs error but proceeds with clean fallbacks

@@ -28,6 +28,12 @@ variable "enable_point_in_time_recovery" {
   default     = false
 }
 
+variable "enable_metadata_seeding" {
+  description = "Provision default seed items in the DynamoDB IoT_Metadata table. Set to false if metadata is managed dynamically."
+  type        = bool
+  default     = true
+}
+
 variable "chart_bucket_name" {
   description = "Name of the S3 bucket where the Lambda uploads chart PNG images and file-list.json."
   type        = string

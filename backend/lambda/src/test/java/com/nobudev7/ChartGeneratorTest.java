@@ -98,6 +98,43 @@ public class ChartGeneratorTest {
     }
 
     @Test
+    public void testGenerateChart_WithMinYRange_ExpandsYRange() throws IOException {
+        List<TelemetryData> data = new ArrayList<>();
+        ZonedDateTime start = ZonedDateTime.of(LocalDate.of(2026, 7, 27), java.time.LocalTime.MIDNIGHT, ZONE_ID);
+        // Flat data with 0.2 difference
+        for (int h = 0; h < 5; h++) {
+            data.add(new TelemetryData(start.plusHours(h), 20.0 + (h * 0.05)));
+        }
+
+        ChartGenerator generator = new ChartGenerator();
+        // Request minYRange = 7.0
+        ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
+                data, "Temperature", "Temperature (°C)", "XYLineChart", 1, 1, "Temperature", "°C", 7.0);
+
+        assertNotNull(result);
+        assertTrue(result.getJsonMetadata().contains("\"minYRange\": 7.0"));
+        assertTrue(result.getJsonMetadata().contains("\"yLowerBound\": 16.6"));
+        assertTrue(result.getJsonMetadata().contains("\"yUpperBound\": 23.6"));
+    }
+
+    @Test
+    public void testGenerateChart_WithoutMinYRange_UsesDynamicRange() throws IOException {
+        List<TelemetryData> data = new ArrayList<>();
+        ZonedDateTime start = ZonedDateTime.of(LocalDate.of(2026, 7, 27), java.time.LocalTime.MIDNIGHT, ZONE_ID);
+        for (int h = 0; h < 5; h++) {
+            data.add(new TelemetryData(start.plusHours(h), 20.0 + (h * 1.0)));
+        }
+
+        ChartGenerator generator = new ChartGenerator();
+        // Pass minYRange = null
+        ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
+                data, "Temperature", "Temperature (°C)", "XYLineChart", 1, 1, "Temperature", "°C", null);
+
+        assertNotNull(result);
+        assertFalse(result.getJsonMetadata().contains("minYRange"));
+    }
+
+    @Test
     public void testGenerateSampleFrontendAssets() throws IOException {
         ChartGenerator generator = new ChartGenerator();
         ZonedDateTime start = ZonedDateTime.of(LocalDate.of(2026, 7, 26), java.time.LocalTime.MIDNIGHT, ZONE_ID);
