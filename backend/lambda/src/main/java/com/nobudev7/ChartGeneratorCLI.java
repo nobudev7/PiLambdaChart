@@ -14,6 +14,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,23 +77,6 @@ import java.util.stream.Collectors;
  *   Override with -o <dir>. Path is relative to the directory where mvn is invoked (backend/lambda/).
  */
 public class ChartGeneratorCLI {
-
-    // Default chart types by metric ID (matches infrastructure seeding.tf)
-    private static final Map<Integer, String> DEFAULT_CHART_TYPES = Map.of(
-            1, "XYLineChart",   // Temperature
-            2, "XYLineChart",   // Humidity
-            3, "XYAreaChart",   // Ambient Light
-            4, "XYAreaChart",   // Motion Count
-            5, "XYLineChart"    // Water Level
-    );
-
-    private static final Map<Integer, String> METRIC_LABELS = Map.of(
-            1, "Temperature (°C)",
-            2, "Humidity (%)",
-            3, "Ambient Light (Lux)",
-            4, "Motion Count (triggers/min)",
-            5, "Water Level (cm)"
-    );
 
     public static void main(String[] args) throws IOException {
         // ── Parse arguments ──────────────────────────────────────────────────
@@ -191,11 +176,12 @@ public class ChartGeneratorCLI {
                     }
                 }
             }
-        }
 
-        // ── Write file-list.json ─────────────────────────────────────────────
-        if (generated > 0) {
-            writeFileListJson(fileTree, outputDir, gson);
+            // ── Write file-list.json and metadata.json ─────────────────────────────────────────────
+            if (generated > 0) {
+                writeFileListJson(fileTree, outputDir, gson);
+                exportMetadataJson(db, outputDir, gson);
+            }
         }
 
         // ── Final summary ────────────────────────────────────────────────────
@@ -226,15 +212,29 @@ public class ChartGeneratorCLI {
             return null;
         }
 
-        // 2. Resolve chart metadata
+        // 2. Resolve chart metadata from DynamoDB metadata table
+        Map<String, String> metricMeta = fetchMetadata(db, "METRIC", metricId);
+        Map<String, String> deviceMeta = fetchMetadata(db, "DEVICE", deviceId);
+
+        String metricName = metricMeta.getOrDefault("Name", "Metric " + metricId);
+        String unit = metricMeta.getOrDefault("Unit", "");
+        String deviceName = deviceMeta.getOrDefault("Name", "Device " + deviceId);
+
         String chartType = chartTypeOverride != null
                 ? chartTypeOverride
-                : DEFAULT_CHART_TYPES.getOrDefault(metricId, "XYLineChart");
+                : metricMeta.getOrDefault("ChartType", "XYLineChart");
 
-        String yLabel = METRIC_LABELS.getOrDefault(metricId, "Metric " + metricId);
+        String yLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
         String dateStr = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String title   = String.format("Device %d — %s on %s",
-                deviceId, yLabel, date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
+        String title   = String.format("%s - %s on %s",
+                deviceName, metricName, date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")));
+
+        Double minYRange = null;
+        if (metricMeta.containsKey("MinYRange")) {
+            try {
+                minYRange = Double.parseDouble(metricMeta.get("MinYRange"));
+            } catch (NumberFormatException ignored) {}
+        }
 
         // 3. Build local output path matching the S3 layout used by ChartGeneratorHandler:
         //    output/{deviceId}/{metricId}/{year}/{month}/{metricId}-YYYYMMDD.png
@@ -248,12 +248,9 @@ public class ChartGeneratorCLI {
 
         // 4. Render and save PNG and JSON sidecar
         String jsonPath = String.format("%s/%d-%s.json", dirPath, metricId, dateStr);
-        String metricNameOnly = yLabel.replaceFirst(" \\(.*\\)$", "");
-        String unitOnly = yLabel.contains("(") ? yLabel.substring(yLabel.indexOf("(") + 1, yLabel.indexOf(")")) : "";
-        Double minYRange = fetchMinYRange(db, metricId);
 
         ChartGenerator.RenderResult result = generator.generateChartWithMetadata(
-                data, title, yLabel, chartType, deviceId, metricId, metricNameOnly, unitOnly, minYRange);
+                data, title, yLabel, chartType, deviceId, metricId, metricName, unit, minYRange);
         if (result != null) {
             Files.write(Paths.get(filePath), result.getImageBytes());
             Files.writeString(Paths.get(jsonPath), result.getJsonMetadata(), java.nio.charset.StandardCharsets.UTF_8);
@@ -440,15 +437,13 @@ public class ChartGeneratorCLI {
               --chart-type  <type>        Force chart type: XYLineChart or XYAreaChart.
               -h, --help                  Show this help.
 
-            KNOWN METRIC IDs
-              1  Temperature   (XYLineChart)
-              2  Humidity      (XYLineChart)
-              3  Ambient Light (XYAreaChart)
-              4  Motion Count  (XYAreaChart)
-              5  Water Level   (XYLineChart)
+            METADATA CONFIGURATION
+              Metric names, units, chart types, and minimum Y-axis ranges (MinYRange) are
+              read dynamically from the DynamoDB metadata registry table ('IoT_Metadata').
+              Override metadata table name with METADATA_TABLE_NAME env variable.
 
             EXAMPLES
-              # Today's temperature chart for device 1
+              # Today's chart for device 1, metric 1
               -d 1 -m 1
 
               # All sensor metrics for two devices on a specific date
@@ -469,26 +464,83 @@ public class ChartGeneratorCLI {
             """);
     }
 
-    private static Double fetchMinYRange(DynamoDbClient ddbClient, int metricId) {
-        if (ddbClient == null) return null;
+    /**
+     * Look up metadata registry configuration from DynamoDB IoT_Metadata table for a given EntityType and ID.
+     */
+    private static Map<String, String> fetchMetadata(DynamoDbClient ddbClient, String entityType, int id) {
+        Map<String, String> result = new HashMap<>();
+        if (ddbClient == null) return result;
         try {
             String metadataTable = envOrDefault("METADATA_TABLE_NAME", "IoT_Metadata");
             software.amazon.awssdk.services.dynamodb.model.GetItemRequest req =
                 software.amazon.awssdk.services.dynamodb.model.GetItemRequest.builder()
                     .tableName(metadataTable)
                     .key(Map.of(
-                        "EntityType", AttributeValue.builder().s("METRIC").build(),
-                        "ID", AttributeValue.builder().n(String.valueOf(metricId)).build()
+                        "EntityType", AttributeValue.builder().s(entityType.toUpperCase()).build(),
+                        "ID", AttributeValue.builder().n(String.valueOf(id)).build()
                     ))
                     .build();
             var resp = ddbClient.getItem(req);
-            if (resp.hasItem() && resp.item() != null && resp.item().containsKey("MinYRange")) {
-                AttributeValue av = resp.item().get("MinYRange");
-                if (av.n() != null) {
-                    return Double.parseDouble(av.n());
+            if (resp.hasItem() && resp.item() != null) {
+                Map<String, AttributeValue> item = resp.item();
+                if (item.containsKey("Name")) result.put("Name", item.get("Name").s());
+                if (item.containsKey("Unit")) result.put("Unit", item.get("Unit").s());
+                if (item.containsKey("ChartType")) result.put("ChartType", item.get("ChartType").s());
+                if (item.containsKey("Location")) result.put("Location", item.get("Location").s());
+                if (item.containsKey("MinYRange") && item.get("MinYRange").n() != null) {
+                    result.put("MinYRange", item.get("MinYRange").n());
                 }
             }
         } catch (Exception ignored) {}
-        return null;
+        return result;
+    }
+
+    private static void exportMetadataJson(DynamoDbClient ddbClient, String outputDir, Gson gson) {
+        if (ddbClient == null) return;
+        try {
+            String metadataTable = envOrDefault("METADATA_TABLE_NAME", "IoT_Metadata");
+            Map<String, Object> root = new HashMap<>();
+            Map<String, Map<String, Object>> metricsMap = new HashMap<>();
+            Map<String, Map<String, Object>> devicesMap = new HashMap<>();
+
+            var scanReq = software.amazon.awssdk.services.dynamodb.model.ScanRequest.builder()
+                    .tableName(metadataTable)
+                    .build();
+            var scanResp = ddbClient.scan(scanReq);
+
+            if (scanResp.hasItems()) {
+                for (Map<String, AttributeValue> item : scanResp.items()) {
+                    if (!item.containsKey("EntityType") || !item.containsKey("ID")) continue;
+                    String entityType = item.get("EntityType").s();
+                    String id = item.get("ID").n() != null ? item.get("ID").n() : item.get("ID").s();
+
+                    Map<String, Object> m = new HashMap<>();
+                    if (item.containsKey("Name")) m.put("name", item.get("Name").s());
+                    if (item.containsKey("Unit")) m.put("unit", item.get("Unit").s());
+                    if (item.containsKey("ChartType")) m.put("chartType", item.get("ChartType").s());
+                    if (item.containsKey("Location")) m.put("location", item.get("Location").s());
+                    if (item.containsKey("Icon")) m.put("icon", item.get("Icon").s());
+                    if (item.containsKey("MinYRange") && item.get("MinYRange").n() != null) {
+                        try { m.put("minYRange", Double.parseDouble(item.get("MinYRange").n())); } catch (Exception ignored) {}
+                    }
+
+                    if ("METRIC".equalsIgnoreCase(entityType)) {
+                        metricsMap.put(id, m);
+                    } else if ("DEVICE".equalsIgnoreCase(entityType)) {
+                        devicesMap.put(id, m);
+                    }
+                }
+            }
+
+            root.put("metrics", metricsMap);
+            root.put("devices", devicesMap);
+
+            String json = gson.toJson(root);
+            Files.createDirectories(Paths.get(outputDir));
+            Files.writeString(Paths.get(outputDir + "/metadata.json"), json, StandardCharsets.UTF_8);
+            System.out.printf("→ SAVED  %s/metadata.json%n", outputDir);
+        } catch (Exception e) {
+            System.err.println("Could not export metadata.json: " + e.getMessage());
+        }
     }
 }

@@ -127,7 +127,7 @@ if [[ "$INCLUDE_OUTPUT" == true ]]; then
     --cache-control "public, max-age=3600" \
     --content-type "application/json"
 
-  # ── Step 3: Upload file-list.json ─────────────────────────────────────────
+  # ── Step 3: Upload file-list.json & metadata.json ─────────────────────────
   echo "▶ Uploading file-list.json — cache 60 seconds…"
   if [[ -f "$PUBLIC_DIR/output/file-list.json" ]]; then
     "${AWS_CMD[@]}" s3 cp "$PUBLIC_DIR/output/file-list.json" \
@@ -137,6 +137,17 @@ if [[ "$INCLUDE_OUTPUT" == true ]]; then
       --content-type "application/json"
   else
     echo "  (no file-list.json found locally — skipped)"
+  fi
+
+  echo "▶ Uploading metadata.json — cache 60 seconds…"
+  if [[ -f "$PUBLIC_DIR/output/metadata.json" ]]; then
+    "${AWS_CMD[@]}" s3 cp "$PUBLIC_DIR/output/metadata.json" \
+      "s3://$BUCKET/output/metadata.json" \
+      ${DRY:+"$DRY"} \
+      --cache-control "public, max-age=60" \
+      --content-type "application/json"
+  else
+    echo "  (no metadata.json found locally — skipped)"
   fi
 else
   echo "▶ Skipping output folder chart assets upload (pass --include-output to enable)"

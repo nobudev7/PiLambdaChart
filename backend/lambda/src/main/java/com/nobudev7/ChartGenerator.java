@@ -78,10 +78,14 @@ public class ChartGenerator {
     private static final Color ACCENT_ORANGE = new Color(251, 146, 60); // Orange 400 (e.g. Motion Count)
 
     public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit) throws IOException {
-        return generateChartWithMetadata(data, title, yAxisLabel, chartType, deviceId, metricId, metricName, unit, null);
+        return generateChartWithMetadata(data, title, yAxisLabel, chartType, deviceId, metricId, metricName, unit, null, null);
     }
 
     public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit, Double minYRange) throws IOException {
+        return generateChartWithMetadata(data, title, yAxisLabel, chartType, deviceId, metricId, metricName, unit, minYRange, null);
+    }
+
+    public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit, Double minYRange, String icon) throws IOException {
         if (data == null || data.isEmpty()) {
             return null;
         }
@@ -263,6 +267,7 @@ public class ChartGenerator {
         metaMap.put("metricId", metricId);
         metaMap.put("metricName", metricName != null ? metricName : "Metric " + metricId);
         metaMap.put("unit", unit != null ? unit : "");
+        metaMap.put("icon", (icon != null && !icon.isEmpty()) ? icon : "📊");
 
         Map<String, Object> plotArea = new HashMap<>();
         plotArea.put("x", dataArea.getX());

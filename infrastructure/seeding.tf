@@ -49,6 +49,7 @@ resource "aws_dynamodb_table_item" "metric_1" {
     Unit       = { S = "°C" }
     ChartType  = { S = "XYLineChart" }
     MinYRange  = { N = "6" }
+    Icon       = { S = "🌡️" }
   })
 }
 
@@ -64,6 +65,7 @@ resource "aws_dynamodb_table_item" "metric_2" {
     Name       = { S = "Humidity" }
     Unit       = { S = "%" }
     ChartType  = { S = "XYLineChart" }
+    Icon       = { S = "💧" }
   })
 }
 
@@ -79,6 +81,7 @@ resource "aws_dynamodb_table_item" "metric_3" {
     Name       = { S = "Ambient Light" }
     Unit       = { S = "Lux" }
     ChartType  = { S = "XYLineChart" }
+    Icon       = { S = "☀️" }
   })
 }
 
@@ -94,6 +97,7 @@ resource "aws_dynamodb_table_item" "metric_4" {
     Name       = { S = "Motion Count" }
     Unit       = { S = "triggers/min" }
     ChartType  = { S = "BarChart" }
+    Icon       = { S = "🔍" }
   })
 }
 
@@ -109,5 +113,6 @@ resource "aws_dynamodb_table_item" "metric_5" {
     Name       = { S = "Water Level" }
     Unit       = { S = "cm" }
     ChartType  = { S = "XYLineChart" }
+    Icon       = { S = "📏" }
   })
 }

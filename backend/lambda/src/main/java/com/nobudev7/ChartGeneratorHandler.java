@@ -145,6 +145,7 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 String metricName = getFallbackMetricName(metricId, metricMetadata.getOrDefault("Name", "Metric " + metricId));
                 String unit = getFallbackMetricUnit(metricId, metricMetadata.getOrDefault("Unit", ""));
                 String chartType = metricMetadata.getOrDefault("ChartType", "XYLineChart");
+                String icon = metricMetadata.getOrDefault("Icon", getFallbackMetricIcon(metricId));
                 Double minYRange = null;
                 if (metricMetadata.containsKey("MinYRange")) {
                     try {
@@ -165,7 +166,7 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 String yAxisLabel = unit.isEmpty() ? metricName : String.format("%s (%s)", metricName, unit);
 
                 ChartGenerator.RenderResult result = chartGenerator.generateChartWithMetadata(
-                        data, chartTitle, yAxisLabel, chartType, deviceId, metricId, metricName, unit, minYRange);
+                        data, chartTitle, yAxisLabel, chartType, deviceId, metricId, metricName, unit, minYRange, icon);
                 if (result != null) {
                     // Upload PNG to S3
                     String s3Key = uploadToS3(result.getImageBytes(), deviceId, metricId, targetDate, dateStr, "image/png", ".png", context);
@@ -178,9 +179,10 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 }
             }
 
-            // 5. Upload updated file-list.json back to S3 ONCE after all metric charts are processed
+            // 5. Upload updated file-list.json and metadata.json back to S3 ONCE after all metric charts are processed
             if (generatedCount > 0) {
                 saveFileListJson(fileTree, context);
+                exportMetadataJson(context);
             }
 
             String summary = String.format("Batch complete for Device %d on %s: %d chart(s) generated, %d skipped.",
@@ -255,6 +257,7 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                 if (item.containsKey("Unit")) result.put("Unit", item.get("Unit").s());
                 if (item.containsKey("ChartType")) result.put("ChartType", item.get("ChartType").s());
                 if (item.containsKey("Location")) result.put("Location", item.get("Location").s());
+                if (item.containsKey("Icon")) result.put("Icon", item.get("Icon").s());
                 if (item.containsKey("MinYRange") && item.get("MinYRange").n() != null) {
                     result.put("MinYRange", item.get("MinYRange").n());
                 }
@@ -287,7 +290,18 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             case 3 -> "Lux";
             case 4 -> "triggers/min";
             case 5 -> "cm";
-            default -> defaultVal;
+            default -> "";
+        };
+    }
+
+    private String getFallbackMetricIcon(int metricId) {
+        return switch (metricId) {
+            case 1 -> "🌡️";
+            case 2 -> "💧";
+            case 3 -> "☀️";
+            case 4 -> "🔍";
+            case 5 -> "📏";
+            default -> "📊";
         };
     }
 
@@ -418,15 +432,76 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
     private void saveFileListJson(
             TreeMap<String, TreeMap<String, TreeMap<String, TreeMap<String, List<String>>>>> fileTree,
             Context context) {
-        String json = gson.toJson(fileTree);
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(BUCKET_NAME)
-                .key(FILE_LIST_JSON_KEY)
-                .contentType("application/json")
-                .cacheControl("max-age=60")
-                .build();
+        try {
+            String json = gson.toJson(fileTree);
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(BUCKET_NAME)
+                    .key(FILE_LIST_JSON_KEY)
+                    .contentType("application/json")
+                    .cacheControl("public, max-age=60")
+                    .build();
 
-        s3Client.putObject(putObjectRequest, RequestBody.fromString(json));
-        context.getLogger().log("Successfully updated S3 file-list.json");
+            s3Client.putObject(putObjectRequest, RequestBody.fromString(json, StandardCharsets.UTF_8));
+            context.getLogger().log("Successfully updated file-list.json on S3");
+        } catch (Exception e) {
+            context.getLogger().log("Error saving file-list.json to S3: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Export all device and metric metadata from IoT_Metadata table to output/metadata.json on S3.
+     */
+    private void exportMetadataJson(Context context) {
+        try {
+            Map<String, Object> root = new HashMap<>();
+            Map<String, Map<String, Object>> metricsMap = new HashMap<>();
+            Map<String, Map<String, Object>> devicesMap = new HashMap<>();
+
+            software.amazon.awssdk.services.dynamodb.model.ScanRequest scanReq =
+                software.amazon.awssdk.services.dynamodb.model.ScanRequest.builder()
+                    .tableName(METADATA_TABLE)
+                    .build();
+            software.amazon.awssdk.services.dynamodb.model.ScanResponse scanResp = dynamoDbClient.scan(scanReq);
+
+            if (scanResp.hasItems()) {
+                for (Map<String, AttributeValue> item : scanResp.items()) {
+                    if (!item.containsKey("EntityType") || !item.containsKey("ID")) continue;
+                    String entityType = item.get("EntityType").s();
+                    String id = item.get("ID").n() != null ? item.get("ID").n() : item.get("ID").s();
+
+                    Map<String, Object> m = new HashMap<>();
+                    if (item.containsKey("Name")) m.put("name", item.get("Name").s());
+                    if (item.containsKey("Unit")) m.put("unit", item.get("Unit").s());
+                    if (item.containsKey("ChartType")) m.put("chartType", item.get("ChartType").s());
+                    if (item.containsKey("Location")) m.put("location", item.get("Location").s());
+                    if (item.containsKey("Icon")) m.put("icon", item.get("Icon").s());
+                    if (item.containsKey("MinYRange") && item.get("MinYRange").n() != null) {
+                        try { m.put("minYRange", Double.parseDouble(item.get("MinYRange").n())); } catch (Exception ignored) {}
+                    }
+
+                    if ("METRIC".equalsIgnoreCase(entityType)) {
+                        metricsMap.put(id, m);
+                    } else if ("DEVICE".equalsIgnoreCase(entityType)) {
+                        devicesMap.put(id, m);
+                    }
+                }
+            }
+
+            root.put("metrics", metricsMap);
+            root.put("devices", devicesMap);
+
+            String json = gson.toJson(root);
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(BUCKET_NAME)
+                    .key("output/metadata.json")
+                    .contentType("application/json")
+                    .cacheControl("public, max-age=60")
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromString(json, StandardCharsets.UTF_8));
+            context.getLogger().log("Successfully updated output/metadata.json on S3");
+        } catch (Exception e) {
+            context.getLogger().log("Could not export output/metadata.json to S3: " + e.getMessage());
+        }
     }
 }

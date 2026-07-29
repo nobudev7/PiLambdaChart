@@ -23,14 +23,8 @@ const DATA_BASE_URL = (() => {
   return 'output';
 })();
 
-/* ── Metric metadata ────────────────────────────────────────────── */
-const METRIC_META = {
-  1: { name: 'Temperature',   unit: '°C',           icon: '🌡️' },
-  2: { name: 'Humidity',      unit: '%',             icon: '💧' },
-  3: { name: 'Ambient Light', unit: 'Lux',           icon: '☀️' },
-  4: { name: 'Motion Count',  unit: 'triggers/min',  icon: '🔍' },
-  5: { name: 'Water Level',   unit: 'cm',            icon: '📏' },
-};
+/* ── Metric metadata (populated dynamically from DynamoDB metadata) ── */
+const METRIC_META = {};
 
 /* ── State ──────────────────────────────────────────────────────── */
 const state = {
@@ -65,6 +59,24 @@ async function init() {
 
   const isLocal = DATA_BASE_URL === 'output' || DATA_BASE_URL.startsWith('.');
   els.dataSourceLabel.textContent = isLocal ? 'Local' : 'S3 / CDN';
+
+  // Fetch global metadata.json registry if present
+  try {
+    const metaResp = await fetch(`${DATA_BASE_URL}/metadata.json`);
+    if (metaResp.ok) {
+      const metaData = await metaResp.json();
+      if (metaData && metaData.metrics) {
+        Object.entries(metaData.metrics).forEach(([id, m]) => {
+          METRIC_META[id] = {
+            name: m.name,
+            unit: m.unit || '',
+            icon: m.icon || '📊',
+            minYRange: m.minYRange
+          };
+        });
+      }
+    }
+  } catch (ignored) {}
 
   try {
     const resp = await fetch(`${DATA_BASE_URL}/file-list.json`);
@@ -232,6 +244,17 @@ async function fetchChartJson(url) {
     if (!resp.ok) return null;
     const data = await resp.json();
     jsonCache.set(url, data);
+
+    if (data && data.metricId && data.metricName) {
+      if (!METRIC_META[data.metricId] || !METRIC_META[data.metricId].icon || METRIC_META[data.metricId].icon === '📊') {
+        METRIC_META[data.metricId] = {
+          name: data.metricName,
+          unit: data.unit || '',
+          icon: data.icon || (METRIC_META[data.metricId]?.icon) || '📊'
+        };
+      }
+    }
+
     return data;
   } catch (err) {
     return null;
