@@ -56,7 +56,8 @@ data "aws_iam_policy_document" "lambda_dynamodb" {
     sid    = "ReadMetadata"
     effect = "Allow"
     actions = [
-      "dynamodb:GetItem"
+      "dynamodb:GetItem",
+      "dynamodb:Scan"
     ]
     resources = [
       aws_dynamodb_table.iot_metadata.arn
