@@ -1,15 +1,20 @@
 # PiLambdaChart Backend Compute Tier
 
-This folder contains the backend resources for PiLambdaChart, including the Java Lambda code.
+This folder contains the backend compute resources for PiLambdaChart, implementing Java-based chart generation, JSON metadata exports, and AWS Lambda event handlers.
 
 ## Folder Structure
-*   `lambda/`: The Maven Java project implementing the chart-generating AWS Lambda handler.
-*   `lambda/pom.xml`: Compilation descriptor for packaging the Lambda JAR.
+*   `lambda/`: The Maven Java project implementing the chart-generating AWS Lambda handler and developer CLI tool.
+*   `lambda/pom.xml`: Compilation descriptor for packaging the Lambda fat/shaded JAR.
 *   `lambda/src/main/java/com/nobudev7/`:
     *   `TelemetryData.java`: Data model for generic timestamped numeric telemetry.
-    *   `ChartGenerator.java`: JFreeChart compilation logic using a custom premium slate-dark style dashboard design.
-    *   `ChartGeneratorHandler.java`: AWS Lambda handler managing input event parsing, metadata lookups, UTC timezone bounds calculations, S3 uploads, and `file-list.json` tree catalog updates.
-    *   `ChartGeneratorCLI.java`: Command-line tool to fetch real DynamoDB telemetry and render chart PNGs locally (no S3 required).
+    *   `ChartGenerator.java`: JFreeChart compilation logic supporting dynamic plot bounds, minimum Y-axis range scaling (`MinYRange`), PNG image byte rendering, and `.json` sidecar generation.
+    *   `ChartGeneratorHandler.java`: AWS Lambda handler managing event payload parsing (`date`, `device`, `metrics`, `timezone`), DynamoDB metadata lookups, UTC timezone bounds, chart rendering, S3 uploads, `file-list.json` catalog updates, and `output/metadata.json` exports.
+    *   `ChartGeneratorCLI.java`: Command-line tool to query real DynamoDB telemetry and render chart PNGs, `.json` sidecars, `file-list.json`, and `output/metadata.json` locally.
+*   `lambda/src/test/java/com/nobudev7/`:
+    *   `ChartGeneratorTest.java`: JUnit 5 unit tests for chart generation, sub-pixel alignments, `MinYRange` scaling, and metadata sidecar exports.
+    *   `LocalChartRenderTest.java`: JUnit 5 unit tests for local chart rendering validation.
+
+---
 
 ## Compilation and Packaging
 
@@ -20,6 +25,8 @@ mvn clean package
 ```
 This generates the packaged artifact:
 *   `target/chart-generator-lambda-1.0-SNAPSHOT.jar`
+
+---
 
 ## Automated Deployment via Terraform
 
@@ -40,7 +47,9 @@ The Lambda function and its EventBridge automated trigger schedule are managed d
    terraform apply
    ```
 
-Terraform automatically binds the DynamoDB and S3 bucket names to the environment variables, assigns the IAM execution role, provisions an automated 5-minute EventBridge trigger, and detects JAR checksum changes to update function code on re-build.
+Terraform automatically binds the DynamoDB and S3 bucket names to the environment variables, assigns the IAM execution role, provisions an automated EventBridge trigger schedule, and detects JAR checksum changes to update function code on re-build.
+
+---
 
 ## Lambda Configuration
 
@@ -48,7 +57,7 @@ Terraform automatically binds the DynamoDB and S3 bucket names to the environmen
 Configure the following environment variables on the AWS Lambda function:
 *   `TELEMETRY_TABLE_NAME`: Name of the DynamoDB telemetry storage table (defaults to `IoT_Telemetry`).
 *   `METADATA_TABLE_NAME`: Name of the DynamoDB metadata registry table (defaults to `IoT_Metadata`).
-*   `S3_BUCKET_NAME`: Name of the S3 bucket where generated charts and `file-list.json` are stored.
+*   `S3_BUCKET_NAME`: Name of the S3 bucket where generated charts, `.json` sidecars, `file-list.json`, and `output/metadata.json` are stored.
 
 ### Handler Configuration
 *   **Runtime**: Java 21
@@ -60,27 +69,32 @@ Configure the following environment variables on the AWS Lambda function:
 The Lambda function parses the following input event keys:
 ```json
 {
-  "device_id": 1,
-  "metric_id": 5,
-  "timezone": "America/New_York",
-  "date": "2026-07-19"
+  "device": 1,
+  "metrics": [1, 2, 3, 4, 5],
+  "date": "yesterday",
+  "timezone": "America/New_York"
 }
 ```
-*   `device_id` / `device` (Integer, default `1`): The numeric device ID partition key.
-*   `metric_id` / `metric` (Integer, default `1`): The numeric metric ID partition key.
-*   `timezone` / `tz` (String, default `America/New_York`): The timezone context used for converting start/end daily boundaries to UTC and adjusting points.
-*   `date` (String, optional): Specific date in `YYYY-MM-DD` format. Alternatively, set `"target": "yesterday"` to fetch yesterday's readings relative to the target timezone's today. Defaults to today's date if omitted.
+*   `device` / `device_id` (Integer, default `1`): The numeric device ID partition key.
+*   `metrics` / `metric` / `metric_id` (List<Integer> or Integer, default `[1, 2, 3, 4, 5]`): Metric IDs to process.
+*   `timezone` / `tz` (String, default `America/New_York`): The timezone context used for daily UTC boundary calculations.
+*   `date` / `target` (String, optional): Specific date (`YYYY-MM-DD`), `"yesterday"`, or `"today"`. Defaults to today's date if omitted.
+
+---
+
+## Dynamic Metadata & Minimum Y-Axis Range (`MinYRange`)
+
+Chart metadata (Metric Names, Units, Chart Types, Emoji Icons, and Minimum Y-Axis Ranges) is retrieved dynamically from the DynamoDB `IoT_Metadata` registry table.
+
+- **`MinYRange`**: Optional number attribute (e.g. `7.0` for Temperature). Ensures the chart Y-axis spans at least the specified range even when data fluctuations are small.
+- **`Icon`**: Optional emoji icon (e.g. `"🌡️"`, `"💧"`, `"☀️"`, `"🔍"`, `"📏"`) stored in DynamoDB metadata and consumed by the frontend dashboard.
+- **Metadata Export (`output/metadata.json`)**: Exported to S3 / local output folder whenever charts are generated, providing the frontend with dynamic metric metadata.
 
 ---
 
 ## Chart Generator CLI
 
-[`ChartGeneratorCLI.java`](lambda/src/main/java/com/nobudev7/ChartGeneratorCLI.java) is a local developer tool that queries real DynamoDB telemetry and renders chart PNGs directly to the local filesystem — no S3 bucket or Lambda invocation required.
-
-Useful for:
-*   Verifying that telemetry data was correctly uploaded by the edge agent.
-*   Inspecting chart output before deploying the Lambda.
-*   Generating charts for arbitrary historical dates and device/metric combinations.
+[`ChartGeneratorCLI.java`](lambda/src/main/java/com/nobudev7/ChartGeneratorCLI.java) is a local developer tool that queries real DynamoDB telemetry and renders chart PNGs, JSON sidecars, `file-list.json`, and `metadata.json` directly to disk — no S3 bucket or Lambda invocation required.
 
 ### Running the CLI
 
@@ -89,66 +103,48 @@ cd lambda/
 mvn compile exec:java -Dexec.args="<options>"
 ```
 
-Credentials and region are resolved automatically by the AWS SDK (env vars → `~/.aws/credentials` → `~/.aws/config`).
-
 ### Options
 
 | Flag | Default | Description |
 |:---|:---|:---|
 | `-d`, `--device` | **required** | Device ID(s). Comma-separated or repeated (`-d 1,2` or `-d 1 -d 2`) |
 | `-m`, `--metric` | **required** | Metric ID(s). Comma-separated or repeated |
-| `--date` | yesterday | Single target date in `YYYY-MM-DD` format |
+| `--date` | `today` | Single target date (`today`, `yesterday`, or `YYYY-MM-DD`) |
 | `--dates` | — | Multiple dates, comma-separated |
-| `--tz` | `America/New_York` | Timezone for local-day boundary calculation |
-| `-o`, `--output` | `../../frontend/public/output` | Output directory (relative to `backend/lambda/` where `mvn` runs) |
+| `--tz` | `America/New_York` | Timezone for daily boundary calculation |
+| `-o`, `--output` | `frontend/public/output` | Output directory (relative to `backend/lambda/`) |
 | `--table` | `IoT_Telemetry` | DynamoDB table name (or set `TELEMETRY_TABLE_NAME` env var) |
-| `--chart-type` | auto by metric | Force `XYLineChart` or `XYAreaChart` for all charts |
+| `--chart-type` | auto from metadata | Override chart type (`XYLineChart` or `XYAreaChart`) for all charts |
 | `-h`, `--help` | — | Print help and exit |
-
-### Known Metric IDs
-
-| ID | Name | Default Chart Type |
-|:---|:---|:---|
-| 1 | Temperature | `XYLineChart` |
-| 2 | Humidity | `XYLineChart` |
-| 3 | Ambient Light | `XYAreaChart` |
-| 4 | Motion Count | `XYAreaChart` |
-| 5 | Water Level | `XYLineChart` |
 
 ### Examples
 
 ```bash
-# Yesterday's temperature chart for device 1 (default output: frontend/public/output/)
+# Today's chart for device 1, metric 1
 mvn compile exec:java -Dexec.args="-d 1 -m 1"
 
-# All five metrics for two devices on a specific date
+# All sensor metrics for two devices on a specific date
 mvn compile exec:java -Dexec.args="-d 1,2 -m 1,2,3,4,5 --date 2026-07-25"
 
 # Multiple dates with a custom output directory
 mvn compile exec:java -Dexec.args="-d 1 -m 1,3 --dates 2026-07-24,2026-07-25 -o ~/charts"
 
-# Different timezone
+# Override timezone
 mvn compile exec:java -Dexec.args="-d 1 -m 1 --tz America/Los_Angeles"
 ```
 
 ### Output Layout
 
-By default, charts are written into the frontend's public asset directory so the static website can serve them directly:
+Charts and metadata are saved to disk under the frontend's output directory:
 
 ```
 frontend/public/output/
-  file-list.json                          ← index consumed by the frontend
+  file-list.json                          ← index catalog consumed by frontend
+  metadata.json                           ← metadata registry exported from DynamoDB
   {deviceId}/{metricId}/{year}/{month}/
-    {metricId}-YYYYMMDD.png
+    {metricId}-YYYYMMDD.png               ← Chart image
+    {metricId}-YYYYMMDD.json              ← Sidecar data points & plot boundaries
 ```
-
-Example for Device 1, Metric 1, date 2026-07-25:
-```
-frontend/public/output/1/1/2026/07/1-20260725.png
-frontend/public/output/file-list.json
-```
-
-The key format is identical to the S3 keys written by the Lambda, so the same `file-list.json` structure and frontend code work with both sources.
 
 ---
 
@@ -156,60 +152,12 @@ The key format is identical to the S3 keys written by the Lambda, so the same `f
 
 ### Lambda Execution Role (Production)
 
-The chart generator Lambda reads from two DynamoDB tables and reads/writes to one S3 bucket. The required IAM permissions are summarised below.
-
 | Service | Action | Resource | Purpose |
 |:---|:---|:---|:---|
 | DynamoDB | `dynamodb:Query` | `IoT_Telemetry` table | Fetch time-bounded telemetry readings |
-| DynamoDB | `dynamodb:GetItem` | `IoT_Metadata` table | Look up device/metric name, unit, chart type |
+| DynamoDB | `dynamodb:GetItem`, `dynamodb:Scan` | `IoT_Metadata` table | Look up device/metric metadata and export `metadata.json` |
 | S3 | `s3:GetObject` | `chart-bucket/*` | Download existing `file-list.json` before merging |
-| S3 | `s3:PutObject` | `chart-bucket/*` | Upload chart PNG images and updated `file-list.json` |
+| S3 | `s3:PutObject` | `chart-bucket/*` | Upload PNG charts, JSON sidecars, `file-list.json`, and `metadata.json` |
 | CloudWatch Logs | `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents` | Lambda log group | Standard Lambda execution logging |
 
-These permissions are codified in the Terraform files under `infrastructure/`:
-
-*   [`iam_lambda.tf`](../infrastructure/iam_lambda.tf): Creates the `{project}-lambda-exec-role` IAM role with least-privilege inline policies for DynamoDB and S3, plus the `AWSLambdaBasicExecutionRole` managed policy attachment for CloudWatch Logs.
-*   [`s3.tf`](../infrastructure/s3.tf): Provisions the chart output S3 bucket with public-access block, versioning, and CORS.
-
-After running `terraform apply`, retrieve the role ARN from the Terraform outputs:
-```bash
-cd infrastructure/
-terraform output lambda_exec_role_arn
-terraform output chart_bucket_name
-```
-Assign `lambda_exec_role_arn` as the **Execution role** on your Lambda function, and set the `chart_bucket_name` value as the `S3_BUCKET_NAME` environment variable.
-
-### Local Integration Test (`LocalTest.java`)
-
-[`LocalTest.java`](lambda/src/test/java/com/nobudev7/LocalTest.java) invokes the handler directly on your machine using real AWS credentials. It requires the same permissions as the Lambda execution role above, scoped to the same resources.
-
-The test automatically skips (no failure) if no credentials are found:
-```java
-if (System.getenv("AWS_ACCESS_KEY_ID") == null && System.getProperty("aws.accessKeyId") == null) {
-    System.out.println("Skipping local AWS integration test - no credentials found.");
-    return;
-}
-```
-
-**Recommended approach — use a named profile:**
-
-1.  Create a developer IAM user or role in your AWS account with the permissions listed in the table above.
-2.  Configure a named profile in `~/.aws/credentials`:
-    ```ini
-    [pilambdachart-dev]
-    aws_access_key_id     = AKIA...
-    aws_secret_access_key = ...
-    region                = us-east-1
-    ```
-3.  Run the local tests with that profile active:
-    ```bash
-    cd lambda/
-    AWS_PROFILE=pilambdachart-dev mvn test -Dtest=LocalTest
-    ```
-
-**Environment variable alternative:**
-```bash
-AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=us-east-1 mvn test -Dtest=LocalTest
-```
-
-> **Note:** `LocalTest.java` is skipped automatically during a standard `mvn test` (CI build) when no credentials are present, so it does not block standard unit tests in [`ChartGeneratorTest.java`](lambda/src/test/java/com/nobudev7/ChartGeneratorTest.java).
+Permissions are configured declaratively in [`infrastructure/iam_lambda.tf`](../infrastructure/iam_lambda.tf).
