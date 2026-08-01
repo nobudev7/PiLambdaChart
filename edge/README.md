@@ -160,3 +160,60 @@ journalctl -u pilambdachart-agent -f
 # Last 100 lines
 journalctl -u pilambdachart-agent -n 100
 ```
+
+---
+
+## AWS IAM Credentials Setup for Edge Client
+
+The Raspberry Pi edge client uploads telemetry data to AWS DynamoDB (`IoT_Telemetry` table) using a dedicated least-privilege IAM user (`pilambdachart-edge-client-user`) provisioned by Terraform in [`infrastructure/iam_client.tf`](../infrastructure/iam_client.tf). For infrastructure setup instructions and output descriptions, see [infrastructure/README.md](../infrastructure/README.md).
+
+### 1. Retrieve Access Keys from Terraform Outputs
+
+On your local machine (where Terraform is deployed), run the following commands in the `infrastructure/` directory to display the credentials:
+
+```bash
+cd infrastructure/
+
+# 1. Print the Access Key ID
+terraform output client_access_key_id
+
+# 2. Print the Secret Access Key (unconcealed)
+terraform output -raw client_secret_access_key
+```
+
+### 2. Configure Credentials on the Raspberry Pi
+
+Log into your Raspberry Pi terminal and set up the AWS credentials file at `~/.aws/credentials`:
+
+```bash
+mkdir -p ~/.aws
+nano ~/.aws/credentials
+```
+
+Paste the credentials retrieved from Terraform:
+
+```ini
+[default]
+aws_access_key_id     = AKIA... (your client_access_key_id from terraform output)
+aws_secret_access_key = ...     (your client_secret_access_key from terraform output)
+```
+
+Configure your target AWS region in `~/.aws/config`:
+
+```bash
+nano ~/.aws/config
+```
+
+```ini
+[default]
+region = us-east-1
+```
+
+Set secure file permissions on the credential files:
+
+```bash
+chmod 600 ~/.aws/credentials ~/.aws/config
+```
+
+> **Note:** With `~/.aws/credentials` configured, both standard execution (`python src/agent.py`) and background `systemd` execution will automatically resolve your AWS credentials.
+
