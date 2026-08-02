@@ -104,17 +104,22 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             }
 
             if (dateVal != null && !dateVal.isEmpty()) {
-                if ("today".equalsIgnoreCase(dateVal)) {
-                    targetDate = LocalDate.now(zoneId);
-                } else if ("yesterday".equalsIgnoreCase(dateVal)) {
-                    targetDate = LocalDate.now(zoneId).minusDays(1);
-                } else {
-                    try {
-                        targetDate = LocalDate.parse(dateVal);
-                    } catch (Exception e) {
-                        context.getLogger().log("Invalid date string '" + dateVal + "'. Expected YYYY-MM-DD, 'today', or 'yesterday'. Defaulting to today.");
+                String lower = dateVal.toLowerCase();
+                try {
+                    if ("today".equals(lower)) {
                         targetDate = LocalDate.now(zoneId);
+                    } else if ("yesterday".equals(lower)) {
+                        targetDate = LocalDate.now(zoneId).minusDays(1);
+                    } else if (lower.endsWith("days ago") || lower.endsWith("day ago")) {
+                        String numStr = lower.replace("days ago", "").replace("day ago", "").trim();
+                        int days = Integer.parseInt(numStr);
+                        targetDate = LocalDate.now(zoneId).minusDays(days);
+                    } else {
+                        targetDate = LocalDate.parse(dateVal);
                     }
+                } catch (Exception e) {
+                    context.getLogger().log("Invalid date string '" + dateVal + "'. Expected YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'. Defaulting to today.");
+                    targetDate = LocalDate.now(zoneId);
                 }
             }
         } else {
