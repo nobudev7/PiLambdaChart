@@ -51,3 +51,7 @@ __pycache__/
 # Frontend generated chart assets (produced by ChartGeneratorCLI / mirrored from S3)
 # Re-generate locally with: cd backend/lambda && mvn compile exec:java -Dexec.args="-d 1 -m 1"
 /**/output/
+
+# Optional untracked demo site configuration files
+demo-config.json
+**/demo-config.json

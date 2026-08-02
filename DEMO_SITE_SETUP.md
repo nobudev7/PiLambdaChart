@@ -124,7 +124,7 @@ aws lambda update-function-code \
 
 ---
 
-### 4. Upload Frontend Web Assets
+### 4. Upload Frontend Web Assets & Optional Demo Banner
 
 Upload static web files (`index.html`, `style.css`, `app.js`) to the demo S3 bucket using [`frontend/deploy.sh`](frontend/deploy.sh). Do **not** pass `--include-output` so local output files are excluded:
 
@@ -132,6 +132,20 @@ Upload static web files (`index.html`, `style.css`, `app.js`) to the demo S3 buc
 cd frontend
 ./deploy.sh --bucket <your-demo-bucket-name> --region <region>
 ```
+
+#### Add Optional Demo Banner (Out-of-Band)
+To display a notice banner on the demo site stating that data is 7 days delayed (without affecting production or committing files to git), upload an untracked `demo-config.json` directly to the demo S3 bucket:
+
+```bash
+aws s3 cp - s3://<your-demo-bucket-name>/output/demo-config.json --content-type application/json << 'EOF'
+{
+  "enabled": true,
+  "message": "This is a demo site showing 7-day delayed data — the actual system supports near-real-time updates."
+}
+EOF
+```
+
+*Note: `demo-config.json` is listed in `.gitignore` so it will never be tracked or committed to Git.*
 
 ---
 

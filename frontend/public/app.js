@@ -56,6 +56,7 @@ const els = {
 async function init() {
   setupSidebar();
   setupChartModal();
+  setupDemoBanner();
 
   const isLocal = DATA_BASE_URL === 'output' || DATA_BASE_URL.startsWith('.');
   els.dataSourceLabel.textContent = isLocal ? 'Local' : 'S3 / CDN';
@@ -768,6 +769,52 @@ function toLocalDateStr(date) {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   OPTIONAL DEMO NOTICE BANNER
+════════════════════════════════════════════════════════════════ */
+async function setupDemoBanner() {
+  let message = null;
+
+  // 1. Check meta tag fallback: <meta name="demo-banner" content="...">
+  const meta = document.querySelector('meta[name="demo-banner"]');
+  if (meta && meta.content) {
+    message = meta.content;
+  } else {
+    // 2. Check untracked demo-config.json
+    try {
+      const resp = await fetch(`${DATA_BASE_URL}/demo-config.json`);
+      if (resp.ok) {
+        const config = await resp.json();
+        if (config && config.enabled !== false && config.message) {
+          message = config.message;
+        }
+      }
+    } catch (ignored) {}
+  }
+
+  if (message) {
+    renderDemoBanner(message);
+  }
+}
+
+function renderDemoBanner(text) {
+  const existing = document.getElementById('demo-notice-banner');
+  if (existing) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'demo-notice-banner';
+  banner.className = 'demo-notice-banner';
+  banner.innerHTML = `
+    <span class="demo-banner-icon">ℹ️</span>
+    <span class="demo-banner-text">${text}</span>
+  `;
+
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) {
+    mainContent.insertBefore(banner, mainContent.firstChild);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
