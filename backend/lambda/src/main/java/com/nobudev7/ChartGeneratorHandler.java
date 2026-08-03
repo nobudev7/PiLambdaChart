@@ -82,24 +82,18 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
 
         // 1. Parse device_id, timezone, and target date
         if (input != null) {
-            if (input.containsKey("device")) {
-                deviceId = parseId(input.get("device"));
-            } else if (input.containsKey("device_id")) {
+            if (input.containsKey("device_id")) {
                 deviceId = parseId(input.get("device_id"));
             }
             
             if (input.containsKey("timezone")) {
                 zoneId = ZoneId.of(String.valueOf(input.get("timezone")));
-            } else if (input.containsKey("tz")) {
-                zoneId = ZoneId.of(String.valueOf(input.get("tz")));
             }
 
             targetDate = LocalDate.now(zoneId);
 
             String dateVal = null;
-            if (input.containsKey("date")) {
-                dateVal = String.valueOf(input.get("date")).trim();
-            } else if (input.containsKey("target")) {
+            if (input.containsKey("target")) {
                 dateVal = String.valueOf(input.get("target")).trim();
             }
 
@@ -118,7 +112,7 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                         targetDate = LocalDate.parse(dateVal);
                     }
                 } catch (Exception e) {
-                    context.getLogger().log("Invalid date string '" + dateVal + "'. Expected YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'. Defaulting to today.");
+                    context.getLogger().log("Invalid target date string '" + dateVal + "'. Expected YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'. Defaulting to today.");
                     targetDate = LocalDate.now(zoneId);
                 }
             }
@@ -222,10 +216,6 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                     }
                 }
             }
-        } else if (input.containsKey("metric")) {
-            metrics.add(parseId(input.get("metric")));
-        } else if (input.containsKey("metric_id")) {
-            metrics.add(parseId(input.get("metric_id")));
         }
 
         if (metrics.isEmpty()) {

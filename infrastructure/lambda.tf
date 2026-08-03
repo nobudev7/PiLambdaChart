@@ -26,6 +26,7 @@ resource "aws_lambda_function" "chart_generator" {
   runtime       = "java21"
   memory_size   = var.lambda_memory_size
   timeout       = 30
+  architectures = ["arm64"]
 
   filename         = "${path.module}/../backend/lambda/target/chart-generator-lambda-1.0-SNAPSHOT.jar"
   source_code_hash = fileexists("${path.module}/../backend/lambda/target/chart-generator-lambda-1.0-SNAPSHOT.jar") ? filebase64sha256("${path.module}/../backend/lambda/target/chart-generator-lambda-1.0-SNAPSHOT.jar") : null

@@ -105,9 +105,9 @@ Test the function using the following event JSON payload to generate charts for 
 
 ```json
 {
-  "device": 1,
+  "device_id": 1,
   "metrics": [1, 2, 3, 4, 5],
-  "date": "7 days ago",
+  "target": "7 days ago",
   "timezone": "America/New_York"
 }
 ```
@@ -167,9 +167,9 @@ Create a daily EventBridge schedule rule to trigger chart generation once per da
 #### Target JSON Payload:
 ```json
 {
-  "device": 1,
+  "device_id": 1,
   "metrics": [1, 2, 3, 4, 5],
-  "date": "7 days ago",
+  "target": "7 days ago",
   "timezone": "America/New_York"
 }
 ```

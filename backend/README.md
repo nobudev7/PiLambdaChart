@@ -69,16 +69,16 @@ Configure the following environment variables on the AWS Lambda function:
 The Lambda function parses the following input event keys:
 ```json
 {
-  "device": 1,
+  "device_id": 1,
   "metrics": [1, 2, 3, 4, 5],
-  "date": "yesterday",
+  "target": "yesterday",
   "timezone": "America/New_York"
 }
 ```
-*   `device` / `device_id` (Integer, default `1`): The numeric device ID partition key.
-*   `metrics` / `metric` / `metric_id` (List<Integer> or Integer, default `[1, 2, 3, 4, 5]`): Metric IDs to process.
-*   `timezone` / `tz` (String, default `America/New_York`): The timezone context used for daily UTC boundary calculations.
-*   `date` / `target` (String, optional): Specific date (`YYYY-MM-DD`), `"yesterday"`, or `"today"`. Defaults to today's date if omitted.
+*   `device_id` (Integer, default `1`): The numeric device ID partition key.
+*   `metrics` (List<Integer>, default `[1, 2, 3, 4, 5]`): Metric IDs to process.
+*   `target` (String, default `today`): Target date string (`YYYY-MM-DD`), `"today"`, `"yesterday"`, or `"N days ago"`.
+*   `timezone` (String, default `America/New_York`): Timezone context used for daily UTC boundary calculations.
 
 ---
 
