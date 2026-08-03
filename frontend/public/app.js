@@ -9,10 +9,20 @@
  * most recent month, so charts appear immediately.
  *
  * Configuration:
- *   DATA_BASE_URL  — base URL of the output folder.
- *     • Local:          'output'   (relative to index.html)
- *     • S3/CloudFront:  set via <meta name="data-base-url" content="...">
- *                       or window.PILAMBDACHART_BASE_URL
+ *   DATA_BASE_URL — Base URL where output assets (file-list.json, metadata.json,
+ *                   chart PNGs, and JSON sidecars) are fetched from.
+ *
+ *   Why it's needed:
+ *     • Same-Origin (Default): When index.html lives alongside /output (local dev or
+ *       standard S3 deployment), DATA_BASE_URL defaults to 'output'.
+ *     • Decoupled/Cross-Origin: If index.html is hosted on a different domain/server
+ *       than your S3/CloudFront chart assets, configure DATA_BASE_URL to point to
+ *       the remote asset URL.
+ *
+ *   How to set:
+ *     • Default:          Leave unset (defaults to relative 'output')
+ *     • HTML Meta Tag:    <meta name="data-base-url" content="https://d123.cloudfront.net/output">
+ *     • JS Window Var:    window.PILAMBDACHART_BASE_URL = 'https://d123.cloudfront.net/output';
  */
 
 /* ── Configuration ──────────────────────────────────────────────── */
@@ -43,11 +53,12 @@ const els = {
   deviceList:     $('device-list'),
   historyLabel:   $('history-label'),
   monthList:      $('month-list'),
-  dataSourceLabel:$('data-source-label'),
   monthBadge:     $('month-badge'),
   mainLoading:    $('main-loading'),
   monthView:      $('month-view'),
   contentFooter:  $('content-footer'),
+  badgeDot:       $('badge-dot'),
+  sidebarFooterText: $('sidebar-footer-text'),
 };
 
 /* ════════════════════════════════════════════════════════════════
@@ -57,9 +68,6 @@ async function init() {
   setupSidebar();
   setupChartModal();
   setupDemoBanner();
-
-  const isLocal = DATA_BASE_URL === 'output' || DATA_BASE_URL.startsWith('.');
-  els.dataSourceLabel.textContent = isLocal ? 'Local' : 'S3 / CDN';
 
   // Fetch global metadata.json registry if present
   try {
@@ -100,6 +108,127 @@ async function init() {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   DEVICE STATUS & CALCULATIONS
+   - Green (<=10m):  Online
+   - Amber (<=1h):   Recent
+   - Red (>1h/None): Offline
+════════════════════════════════════════════════════════════════ */
+function calculateDeviceStatus(devId) {
+  if (!state.fileTree || !state.fileTree[devId]) {
+    return { stateClass: 'status-red', label: 'Offline', lastUpdatedStr: 'No Data' };
+  }
+
+  const metricsMap = state.fileTree[devId];
+  let maxDateStr = null; // YYYYMMDD
+  let maxFileKey = null;
+
+  Object.values(metricsMap).forEach(yearsMap => {
+    Object.values(yearsMap).forEach(monthsMap => {
+      Object.values(monthsMap).forEach(files => {
+        files.forEach(fileKey => {
+          const match = fileKey.match(/(\d{8})\.png$/);
+          if (match && (!maxDateStr || match[1] > maxDateStr)) {
+            maxDateStr = match[1];
+            maxFileKey = fileKey;
+          }
+        });
+      });
+    });
+  });
+
+  if (!maxDateStr) {
+    return { stateClass: 'status-red', label: 'Offline', lastUpdatedStr: 'No Data' };
+  }
+
+  const year = parseInt(maxDateStr.substring(0, 4), 10);
+  const month = parseInt(maxDateStr.substring(4, 6), 10) - 1;
+  const day = parseInt(maxDateStr.substring(6, 8), 10);
+  let latestMs = new Date(year, month, day).getTime();
+  let timeStr = null;
+
+  if (maxFileKey) {
+    const jsonUrl = `${DATA_BASE_URL}/${maxFileKey.replace(/\.png$/, '.json')}`;
+    const sidecar = jsonCache.get(jsonUrl);
+    if (sidecar && sidecar.points && sidecar.points.length > 0) {
+      const lastPt = sidecar.points[sidecar.points.length - 1];
+      if (lastPt && lastPt.epochMs) {
+        latestMs = lastPt.epochMs;
+      }
+      if (lastPt && lastPt.time) {
+        timeStr = lastPt.time;
+      }
+    }
+  }
+
+  const dt = new Date(latestMs);
+  const pad = n => String(n).padStart(2, '0');
+  const formattedDate = `${dt.getFullYear()}/${pad(dt.getMonth() + 1)}/${pad(dt.getDate())}`;
+  const formattedTime = timeStr ? timeStr : (dt.getHours() === 0 && dt.getMinutes() === 0 ? '' : `${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`);
+  const lastUpdatedStr = formattedTime ? `${formattedDate} ${formattedTime}` : formattedDate;
+
+  const diffMinutes = (Date.now() - latestMs) / (1000 * 60);
+
+  let stateClass = 'status-red';
+  let label = 'Offline';
+
+  if (diffMinutes <= 10) {
+    stateClass = 'status-green';
+    label = 'Online';
+  } else if (diffMinutes <= 60) {
+    stateClass = 'status-amber';
+    label = 'Recent';
+  }
+
+  return { stateClass, label, lastUpdatedStr };
+}
+
+function updateSidebarFooter(devId) {
+  if (!els.badgeDot || !els.sidebarFooterText) return;
+  const status = calculateDeviceStatus(devId);
+  els.badgeDot.className = `badge-dot ${status.stateClass}`;
+  els.sidebarFooterText.textContent = `Device ${devId} — ${status.lastUpdatedStr}`;
+}
+
+function updateDeviceListItem(devId) {
+  const btn = document.getElementById(`dev-btn-${devId}`);
+  if (!btn) return;
+  const status = calculateDeviceStatus(devId);
+  const dot = btn.querySelector('.device-btn-dot');
+  const statusText = btn.querySelector('.device-btn-status');
+  if (dot) dot.className = `device-btn-dot ${status.stateClass}`;
+  if (statusText) statusText.textContent = status.label;
+}
+
+function updateDeviceStatusUI(devId) {
+  updateDeviceListItem(devId);
+  if (state.deviceId === devId || !state.deviceId) {
+    updateSidebarFooter(devId || state.deviceId);
+  }
+}
+
+function getLatestFileKeyForDevice(devId) {
+  if (!state.fileTree || !state.fileTree[devId]) return null;
+  const metricsMap = state.fileTree[devId];
+  let maxDateStr = null;
+  let maxFileKey = null;
+
+  Object.values(metricsMap).forEach(yearsMap => {
+    Object.values(yearsMap).forEach(monthsMap => {
+      Object.values(monthsMap).forEach(files => {
+        files.forEach(fileKey => {
+          const match = fileKey.match(/(\d{8})\.png$/);
+          if (match && (!maxDateStr || match[1] > maxDateStr)) {
+            maxDateStr = match[1];
+            maxFileKey = fileKey;
+          }
+        });
+      });
+    });
+  });
+  return maxFileKey;
+}
+
+/* ════════════════════════════════════════════════════════════════
    SIDEBAR — DEVICE LIST
 ════════════════════════════════════════════════════════════════ */
 function buildDeviceList() {
@@ -113,15 +242,26 @@ function buildDeviceList() {
 
   els.deviceList.innerHTML = '';
   deviceIds.forEach(devId => {
+    const status = calculateDeviceStatus(devId);
     const btn = document.createElement('button');
     btn.className = 'device-btn';
     btn.id = `dev-btn-${devId}`;
     btn.dataset.deviceId = devId;
     btn.innerHTML =
-      `<span class="device-btn-icon">🖥️</span>
-       <span class="device-btn-label">Device ${devId}</span>`;
+      `<span class="device-btn-dot ${status.stateClass}"></span>
+       <span class="device-btn-label">Device ${devId}</span>
+       <span class="device-btn-status">${status.label}</span>`;
     btn.addEventListener('click', () => selectDevice(devId));
     els.deviceList.appendChild(btn);
+
+    // Asynchronously pre-fetch latest sidecar JSON to ensure exact timestamp accuracy
+    const maxKey = getLatestFileKeyForDevice(devId);
+    if (maxKey) {
+      const jsonUrl = `${DATA_BASE_URL}/${maxKey.replace(/\.png$/, '.json')}`;
+      fetchChartJson(jsonUrl).then(() => {
+        updateDeviceStatusUI(devId);
+      });
+    }
   });
 }
 
@@ -143,6 +283,8 @@ function selectDevice(devId, initial = false) {
   // Update active state
   document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`dev-btn-${devId}`)?.classList.add('active');
+
+  updateSidebarFooter(devId);
 
   // Build year/month navigator for this device
   const months = getDeviceMonths(devId); // descending ["2026/07", "2026/06", ...]
@@ -245,6 +387,11 @@ async function fetchChartJson(url) {
     if (!resp.ok) return null;
     const data = await resp.json();
     jsonCache.set(url, data);
+    if (data && data.deviceId) {
+      updateDeviceStatusUI(data.deviceId);
+    } else if (state.deviceId) {
+      updateDeviceStatusUI(state.deviceId);
+    }
 
     if (data && data.metricId && data.metricName) {
       if (!METRIC_META[data.metricId] || !METRIC_META[data.metricId].icon || METRIC_META[data.metricId].icon === '📊') {

@@ -173,8 +173,26 @@ body {
 }
 
 .device-btn-icon { font-size: 0.95rem; flex-shrink: 0; }
+.device-btn-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
+}
 .device-btn-label { overflow: hidden; text-overflow: ellipsis; transition: opacity var(--dur-mid); }
-.sidebar.collapsed .device-btn-label { opacity: 0; pointer-events: none; }
+.device-btn-status {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  font-weight: 400;
+  transition: opacity var(--dur-mid), color var(--dur-fast);
+}
+.device-btn.active .device-btn-status {
+  color: var(--accent);
+  opacity: 0.9;
+}
+.sidebar.collapsed .device-btn-label,
+.sidebar.collapsed .device-btn-status { opacity: 0; pointer-events: none; }
 
 /* Month list */
 .month-list {
@@ -234,10 +252,26 @@ body {
 .badge-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 5px var(--success);
+  background: #ef4444;
+  box-shadow: 0 0 5px #ef4444;
   flex-shrink: 0;
+  transition: background var(--dur-fast), box-shadow var(--dur-fast);
 }
+
+/* Status colors (Green = <=10m Online, Amber = <=1h Recent, Red = >1h Offline) */
+.badge-dot.status-green, .device-btn-dot.status-green {
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+.badge-dot.status-amber, .device-btn-dot.status-amber {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+.badge-dot.status-red, .device-btn-dot.status-red {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
 .sidebar-footer-text {
   font-size: 0.75rem;
   color: var(--text-muted);

@@ -76,22 +76,27 @@ aws s3 website s3://your-bucket-name \
 
 Or manage it declaratively via Terraform in `infrastructure/`.
 
-### 2. Set Production Data URL in `index.html` (Optional)
+### 2. Configuring `DATA_BASE_URL` (Optional)
 
-Add a `<meta>` tag pointing to the S3/CloudFront URL where chart assets live:
+`DATA_BASE_URL` defines the base path where `app.js` fetches `file-list.json`, `metadata.json`, chart PNGs, and JSON sidecars.
 
-```html
-<!-- In index.html <head>, before <link rel="stylesheet"> -->
-<meta name="data-base-url" content="https://your-bucket.s3.amazonaws.com/output" />
-```
+#### Why is `DATA_BASE_URL` needed?
+- **Same-Origin Deployment (Default)**: When `index.html` is hosted on the same server, S3 bucket, or CloudFront domain alongside the `/output` folder, `DATA_BASE_URL` defaults to `'output'`. **No configuration is required.**
+- **Cross-Origin / Decoupled Deployment**: If your `index.html` web page is hosted on a separate web server or domain (e.g., GitHub Pages) while your chart assets are hosted on an external S3 bucket or CloudFront CDN domain (e.g., `https://d123example.cloudfront.net/output`), you must set `DATA_BASE_URL` so `app.js` knows where to fetch data.
 
-Or set a global variable before `app.js` loads:
+#### How to configure `DATA_BASE_URL`:
 
-```html
-<script>window.PILAMBDACHART_BASE_URL = 'https://d123example.cloudfront.net/output';</script>
-```
+* **Option A — HTML `<meta>` Tag** (in `index.html` `<head>`):
+  ```html
+  <meta name="data-base-url" content="https://your-bucket.s3.amazonaws.com/output" />
+  ```
 
-> Leave both unset to use the default `output` relative path (local dev mode).
+* **Option B — JavaScript Window Variable** (before `app.js` script tag):
+  ```html
+  <script>window.PILAMBDACHART_BASE_URL = 'https://d123example.cloudfront.net/output';</script>
+  ```
+
+> **Note**: For standard single-bucket deployments (or local testing with `python3 -m http.server`), leave both unset to use the default `output` relative path.
 
 ### 3. Run the Deploy Script
 
@@ -128,5 +133,5 @@ cd frontend/
 |:---|:---|:---|
 | Chart Images & Sidecars | `public/output/*` (CLI) | `s3://bucket/output/*` (Lambda) |
 | `file-list.json` & `metadata.json` | `public/output/` (CLI) | `s3://bucket/output/` (Lambda) |
-| Data Base URL | `output` (relative) | CloudFront/S3 URL via `<meta>` tag |
+| Data Base URL | `output` (relative) | `output` (relative) |
 | Hosting | `python3 -m http.server` | S3 Static Site + CloudFront CDN |
