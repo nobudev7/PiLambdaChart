@@ -172,8 +172,12 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                     // Upload JSON sidecar to S3
                     uploadToS3(result.getJsonMetadata().getBytes(StandardCharsets.UTF_8),
                             deviceId, metricId, targetDate, dateStr, "application/json", ".json", context);
-                    // Update in-memory fileTree
-                    updateFileListInMemory(fileTree, deviceId, metricId, s3Key, targetDate);
+                    // Update in-memory fileTree with relative key (without output/ prefix),
+                    // matching the format used by ChartGeneratorCLI
+                    String year = String.valueOf(targetDate.getYear());
+                    String month = targetDate.format(DateTimeFormatter.ofPattern("MM"));
+                    String fileKey = String.format("%d/%d/%s/%s/%d-%s.png", deviceId, metricId, year, month, metricId, dateStr);
+                    updateFileListInMemory(fileTree, deviceId, metricId, fileKey, targetDate);
                     generatedCount++;
                 }
             }
