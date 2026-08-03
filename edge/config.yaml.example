@@ -16,6 +16,11 @@ aws:
   # Can be overridden by setting the AWS_REGION environment variable.
   region: "us-east-1"
   
+  # Optional AWS CLI Named Profile from ~/.aws/credentials (e.g. "pilambdachart").
+  # Useful when multiple AWS applications with different IAM credentials run on the same Pi.
+  # Can be overridden by setting the AWS_PROFILE environment variable.
+  # profile: "pilambdachart"
+
   # DynamoDB table name for storing telemetry.
   # Can be overridden by setting the AWS_TELEMETRY_TABLE environment variable.
   telemetry_table: "IoT_Telemetry"

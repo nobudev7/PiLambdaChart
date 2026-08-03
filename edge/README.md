@@ -190,12 +190,18 @@ mkdir -p ~/.aws
 nano ~/.aws/credentials
 ```
 
-Paste the credentials retrieved from Terraform:
+Paste the credentials retrieved from Terraform (using default or a named profile):
 
 ```ini
+# Default profile (single app on Pi)
 [default]
 aws_access_key_id     = AKIA... (your client_access_key_id from terraform output)
 aws_secret_access_key = ...     (your client_secret_access_key from terraform output)
+
+# Named profile (if multiple AWS apps run on the same Pi)
+[pilambdachart]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
 ```
 
 Configure your target AWS region in `~/.aws/config`:
@@ -207,6 +213,9 @@ nano ~/.aws/config
 ```ini
 [default]
 region = us-east-1
+
+[profile pilambdachart]
+region = us-east-1
 ```
 
 Set secure file permissions on the credential files:
@@ -214,6 +223,20 @@ Set secure file permissions on the credential files:
 ```bash
 chmod 600 ~/.aws/credentials ~/.aws/config
 ```
+
+#### Using Named AWS Profiles
+If your Raspberry Pi already runs another AWS application using `[default]`, configure PiLambdaChart to use the `[pilambdachart]` profile:
+
+1. **Via `config.yaml`**:
+   ```yaml
+   aws:
+     profile: "pilambdachart"
+     region: "us-east-1"
+   ```
+2. **Via Environment Variable**:
+   ```bash
+   AWS_PROFILE=pilambdachart python src/agent.py
+   ```
 
 > **Note:** With `~/.aws/credentials` configured, both standard execution (`python src/agent.py`) and background `systemd` execution will automatically resolve your AWS credentials.
 

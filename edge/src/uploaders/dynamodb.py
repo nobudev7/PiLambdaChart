@@ -7,16 +7,18 @@ from botocore.exceptions import BotoCoreError, ClientError
 logger = logging.getLogger(__name__)
 
 class DynamoDbUploader:
-    def __init__(self, region: str, table_name: str, enabled: bool = True):
+    def __init__(self, region: str, table_name: str, enabled: bool = True, profile: str = None):
         """
         DynamoDB Uploader for IoT Telemetry.
         :param region: AWS region.
         :param table_name: DynamoDB table name.
         :param enabled: If False, runs in dry-run/mock mode and logs data without uploading.
+        :param profile: Optional AWS CLI profile name (e.g. 'pilambdachart').
         """
         self.region = region
         self.table_name = table_name
         self.enabled = enabled
+        self.profile = profile
         self.db = None
         self.table = None
 
@@ -26,7 +28,13 @@ class DynamoDbUploader:
             return
 
         try:
-            self.db = boto3.resource("dynamodb", region_name=self.region)
+            if self.profile:
+                session = boto3.Session(profile_name=self.profile, region_name=self.region)
+                logger.info(f"DynamoDB Uploader using AWS profile: '{self.profile}'")
+            else:
+                session = boto3.Session(region_name=self.region)
+
+            self.db = session.resource("dynamodb", region_name=self.region)
             self.table = self.db.Table(self.table_name)
             logger.info(f"DynamoDB Uploader connected to table: '{self.table_name}' in region: '{self.region}'")
         except Exception as e:

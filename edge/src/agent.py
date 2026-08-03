@@ -62,6 +62,11 @@ class IoTAgent:
             self.config["aws"]["region"] = env_aws_region
             logger.info(f"Overriding AWS region via env: {env_aws_region}")
 
+        env_aws_profile = os.environ.get("AWS_PROFILE") or os.environ.get("AWS_DEFAULT_PROFILE")
+        if env_aws_profile:
+            self.config["aws"]["profile"] = env_aws_profile
+            logger.info(f"Overriding AWS profile via env: {env_aws_profile}")
+
         env_telemetry_table = os.environ.get("AWS_TELEMETRY_TABLE")
         if env_telemetry_table:
             self.config["aws"]["telemetry_table"] = env_telemetry_table
@@ -87,6 +92,7 @@ class IoTAgent:
         """Instantiate configured sensors and the DynamoDB uploader."""
         aws_cfg = self.config.get("aws", {})
         region = aws_cfg.get("region", "us-east-1")
+        profile = aws_cfg.get("profile")
         table_name = aws_cfg.get("telemetry_table", "IoT_Telemetry")
         
         # Determine if we should perform actual uploads or local dry-runs
@@ -95,7 +101,7 @@ class IoTAgent:
             aws_enabled = False
             logger.info("Dry-run mode overridden via command-line arguments.")
 
-        self.uploader = DynamoDbUploader(region=region, table_name=table_name, enabled=aws_enabled)
+        self.uploader = DynamoDbUploader(region=region, table_name=table_name, enabled=aws_enabled, profile=profile)
         self.uploader.setup()
 
         if self.telemetry_summary_enabled:
