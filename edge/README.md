@@ -5,6 +5,7 @@ This folder contains the Python telemetry agent running on Raspberry Pi edge dev
 ## Folder Structure
 *   `config.yaml.example`: Configuration template for device IDs, AWS regions, and active sensor plugins. Copy to `config.yaml` to configure locally.
 *   `src/agent.py`: Main event loop daemon managing asynchronous sensor reading tasks and DynamoDB uploading queues.
+*   `src/put_datapoint.py`: Standalone CLI to upload a single data point to DynamoDB without running the full agent.
 *   `src/sensors/`: Decoupled sensor driver plugins:
     *   `base_sensor.py`: Abstract Base Class (`BaseSensor`) for all sensor plugins.
     *   `dht_sensor.py`: Driver for DHT11 and DHT22 Temperature/Humidity sensors.
@@ -91,6 +92,59 @@ The agent features automatic hardware fallback. If run on a non-Raspberry Pi mac
    ```bash
    python src/agent.py --dry-run
    ```
+
+---
+
+## Single Data Point Upload (`put_datapoint.py`)
+
+A standalone CLI for uploading a single data point to DynamoDB without running the full agent. Useful for manual data injection, testing, or scripted one-shot uploads.
+
+### Usage
+
+```bash
+python src/put_datapoint.py --timestamp <TIMESTAMP> --value <VALUE> --device-id <ID> --metric-id <ID> [options]
+```
+
+### Required Arguments
+
+| Argument | Description |
+| :--- | :--- |
+| `--timestamp` | ISO-8601 timestamp (e.g. `2026-08-04T20:30:00Z`, `2026-08-04T16:30:00-04:00`) or `now` |
+| `--value` | Numeric value of the data point |
+| `--metric-id` | Metric ID (integer) |
+| `--device-id` | Device ID (integer). Falls back to `DEVICE_ID` env or `config.yaml` |
+
+### Optional Arguments
+
+| Argument | Env Variable | Config Key | Default |
+| :--- | :--- | :--- | :--- |
+| `--region` | `AWS_REGION` | `aws.region` | `us-east-1` |
+| `--profile` | `AWS_PROFILE` | `aws.profile` | *(none)* |
+| `--table` | `AWS_TELEMETRY_TABLE` | `aws.telemetry_table` | `IoT_Telemetry` |
+| `--config` | — | — | `edge/config.yaml` (if exists) |
+| `--dry-run` | — | `aws.enabled: false` | off |
+
+### Examples
+
+```bash
+# Upload a temperature reading with explicit device ID
+python src/put_datapoint.py --timestamp "2026-08-04T20:30:00Z" --value 23.5 --device-id 2 --metric-id 1
+
+# Use current UTC time
+python src/put_datapoint.py --timestamp now --value 42.0 --device-id 2 --metric-id 3
+
+# Device ID from environment variable, dry-run mode
+DEVICE_ID=2 python src/put_datapoint.py --timestamp now --value 18.7 --metric-id 1 --dry-run
+
+# Use a specific AWS profile
+python src/put_datapoint.py --timestamp now --value 65.2 --device-id 2 --metric-id 2 --profile pilambdachart
+```
+
+### Output
+
+- **Success:** `OK 2#1#2026 2026-08-04T20:30:00Z 23.5` (exit code 0)
+- **Dry run:** `[DRY-RUN] OK 2#1#2026 2026-08-04T20:30:00Z 23.5` (exit code 0)
+- **Failure:** Error message to stderr (exit code 1)
 
 ---
 
