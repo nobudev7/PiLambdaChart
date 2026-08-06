@@ -23,7 +23,7 @@
 
   --success:        hsl(145, 58%, 48%);
 
-  --sidebar-width:      252px;
+  --sidebar-width:      302px;
   --sidebar-collapsed:  60px;
   --topbar-height:      52px;
 
@@ -73,6 +73,29 @@ body {
 }
 
 .sidebar.collapsed { width: var(--sidebar-collapsed); }
+
+/* Resize handle */
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 101;
+  transition: background 0.15s;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.active {
+  background: var(--accent-dim);
+}
+
+/* Disable transitions during drag for smooth resizing */
+.sidebar.resizing,
+.sidebar.resizing ~ .main-wrapper {
+  transition: none !important;
+}
 
 /* Header */
 .sidebar-header {

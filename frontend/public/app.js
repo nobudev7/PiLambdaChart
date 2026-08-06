@@ -36,6 +36,9 @@ const DATA_BASE_URL = (() => {
 /* ── Metric metadata (populated dynamically from DynamoDB metadata) ── */
 const METRIC_META = {};
 
+/* ── Device metadata (populated dynamically from DynamoDB metadata) ── */
+const DEVICE_META = {};
+
 /* ── State ──────────────────────────────────────────────────────── */
 const state = {
   fileTree:       null,   // parsed file-list.json
@@ -81,6 +84,14 @@ async function init() {
             unit: m.unit || '',
             icon: m.icon || '📊',
             minYRange: m.minYRange
+          };
+        });
+      }
+      if (metaData && metaData.devices) {
+        Object.entries(metaData.devices).forEach(([id, d]) => {
+          DEVICE_META[id] = {
+            name: d.name || '',
+            location: d.location || ''
           };
         });
       }
@@ -182,11 +193,16 @@ function calculateDeviceStatus(devId) {
   return { stateClass, label, lastUpdatedStr };
 }
 
+function getDeviceDisplayName(devId) {
+  const meta = DEVICE_META[devId];
+  return meta && meta.name ? `Device ${devId} - ${meta.name}` : `Device ${devId}`;
+}
+
 function updateSidebarFooter(devId) {
   if (!els.badgeDot || !els.sidebarFooterText) return;
   const status = calculateDeviceStatus(devId);
   els.badgeDot.className = `badge-dot ${status.stateClass}`;
-  els.sidebarFooterText.textContent = `Device ${devId} — ${status.lastUpdatedStr}`;
+  els.sidebarFooterText.textContent = `${getDeviceDisplayName(devId)} — ${status.lastUpdatedStr}`;
 }
 
 function updateDeviceListItem(devId) {
@@ -249,7 +265,7 @@ function buildDeviceList() {
     btn.dataset.deviceId = devId;
     btn.innerHTML =
       `<span class="device-btn-dot ${status.stateClass}"></span>
-       <span class="device-btn-label">Device ${devId}</span>
+       <span class="device-btn-label">${getDeviceDisplayName(devId)}</span>
        <span class="device-btn-status">${status.label}</span>`;
     btn.addEventListener('click', () => selectDevice(devId));
     els.deviceList.appendChild(btn);
@@ -935,6 +951,49 @@ function setupSidebar() {
     els.sidebarOverlay.classList.add('visible');
   });
   els.sidebarOverlay.addEventListener('click', closeMobileSidebar);
+  setupSidebarResize();
+}
+
+function setupSidebarResize() {
+  const handle = document.getElementById('sidebar-resize-handle');
+  if (!handle) return;
+
+  const MIN_WIDTH = 180;
+  const MAX_WIDTH = 500;
+  let dragging = false;
+
+  function onMouseDown(e) {
+    // Don't resize on mobile or when collapsed
+    if (window.innerWidth <= 860 || els.sidebar.classList.contains('collapsed')) return;
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('active');
+    els.sidebar.classList.add('resizing');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  function onMouseMove(e) {
+    if (!dragging) return;
+    let newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+    els.sidebar.style.width = newWidth + 'px';
+    document.querySelector('.main-wrapper').style.marginLeft = newWidth + 'px';
+  }
+
+  function onMouseUp() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('active');
+    els.sidebar.classList.remove('resizing');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  handle.addEventListener('mousedown', onMouseDown);
 }
 
 function closeMobileSidebar() {
