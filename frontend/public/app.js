@@ -266,12 +266,43 @@ function buildDeviceList() {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   AUTO-SELECT: first device + most recent month on page load
+   URL PARAMETER SUPPORT
+   Supported params: ?device=2&year=2026&month=08&day=03
+   All params are optional — falls back to auto-select-first.
+════════════════════════════════════════════════════════════════ */
+function parseUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    device: params.get('device'),
+    year:   params.get('year'),
+    month:  params.get('month'),
+    day:    params.get('day'),
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   AUTO-SELECT: from URL params or first device + most recent month
 ════════════════════════════════════════════════════════════════ */
 function autoSelectFirst() {
   const deviceIds = Object.keys(state.fileTree).sort((a, b) => +a - +b);
   if (deviceIds.length === 0) { showFooter(); return; }
-  selectDevice(deviceIds[0], /* initial */ true);
+
+  const urlParams = parseUrlParams();
+
+  // Pick device from URL or default to the first
+  const targetDevice = urlParams.device && deviceIds.includes(urlParams.device)
+    ? urlParams.device
+    : deviceIds[0];
+
+  // Store URL-requested year/month/day for use after rendering
+  if (urlParams.year && urlParams.month) {
+    state._urlYearMonth = `${urlParams.year}/${urlParams.month.padStart(2, '0')}`;
+  }
+  if (urlParams.day) {
+    state._urlDay = urlParams.day.padStart(2, '0');
+  }
+
+  selectDevice(targetDevice, /* initial */ true);
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -313,9 +344,13 @@ function selectDevice(devId, initial = false) {
     els.monthList.appendChild(btn);
   });
 
-  // Auto-select most recent month
-  const mostRecent = months[0];
-  selectYearMonth(mostRecent);
+  // Select month from URL params or default to most recent
+  let targetMonth = months[0];
+  if (state._urlYearMonth && months.includes(state._urlYearMonth)) {
+    targetMonth = state._urlYearMonth;
+  }
+  delete state._urlYearMonth;
+  selectYearMonth(targetMonth);
 
   if (window.innerWidth <= 860 && !initial) closeMobileSidebar();
 }
@@ -373,6 +408,16 @@ function renderMonthView(year, month) {
     const card = buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr);
     els.monthView.appendChild(card);
   });
+
+  // Scroll to a specific day card if requested via URL ?day= param
+  if (state._urlDay) {
+    const targetDate = `${year}-${month}-${state._urlDay}`;
+    delete state._urlDay;
+    requestAnimationFrame(() => {
+      const target = els.monthView.querySelector(`.day-card[data-date="${targetDate}"]`);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -413,6 +458,7 @@ async function fetchChartJson(url) {
 function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
   const card = document.createElement('div');
   card.className = 'day-card';
+  card.dataset.date = dateStr;
 
   // Header row
   const header = document.createElement('div');
