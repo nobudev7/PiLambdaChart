@@ -27,29 +27,74 @@ resource "aws_cloudfront_origin_access_control" "s3_oac" {
   signing_protocol                  = "sigv4"
 }
 
-# 2. CloudFront Function for HTTP Basic Authentication
+# 2. CloudFront Function for HTTP Basic Authentication with Cookie Persistence
+#
+# On first visit (no cookie): prompts HTTP Basic Auth.
+# On successful auth: sets a '__plc_auth' cookie valid for 30 days.
+# On return visits: validates the cookie — no re-prompt needed.
+# This solves iOS Safari aggressively dropping Basic Auth credentials.
 resource "aws_cloudfront_function" "basic_auth" {
   count   = var.enable_cloudfront && var.enable_cloudfront_basic_auth ? 1 : 0
   name    = "${var.project_name}-basic-auth"
-  runtime = "cloudfront-js-1.0"
-  comment = "HTTP Basic Authentication for ${var.project_name} Dashboard"
+  runtime = "cloudfront-js-2.0"
+  comment = "HTTP Basic Auth with 30-day cookie persistence for ${var.project_name}"
   publish = true
 
   code = <<EOF
+var AUTH_STRING = "Basic ${base64encode("${var.basic_auth_username}:${var.basic_auth_password}")}";
+var COOKIE_NAME = "__plc_auth";
+var COOKIE_MAX_AGE = 2592000; // 30 days in seconds
+
+// Simple hash of the password to use as the cookie token.
+// Not cryptographic, but sufficient for a private dashboard —
+// an attacker would need the password to forge the cookie value.
+function computeToken(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) {
+        h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    }
+    return "plc" + (h >>> 0).toString(36);
+}
+
+var VALID_TOKEN = computeToken("${var.basic_auth_password}");
+
 function handler(event) {
     var request = event.request;
     var headers = request.headers;
-    var authString = "Basic ${base64encode("${var.basic_auth_username}:${var.basic_auth_password}")}";
 
-    if (headers.authorization && headers.authorization.value === authString) {
-        return request;
+    // 1. Check for valid auth cookie
+    if (headers.cookie) {
+        var cookies = headers.cookie.value;
+        var match = cookies.match(new RegExp("(?:^|;\\s*)" + COOKIE_NAME + "=([^;]+)"));
+        if (match && match[1] === VALID_TOKEN) {
+            return request; // Cookie valid — pass through
+        }
     }
 
+    // 2. Check Basic Auth header
+    if (headers.authorization && headers.authorization.value === AUTH_STRING) {
+        // Auth successful — set a persistent cookie and redirect to strip the
+        // Authorization header from the browser's memory, then serve normally.
+        var cookieValue = COOKIE_NAME + "=" + VALID_TOKEN
+            + "; Path=/; Max-Age=" + COOKIE_MAX_AGE
+            + "; Secure; HttpOnly; SameSite=Lax";
+        return {
+            statusCode: 302,
+            statusDescription: "Found",
+            headers: {
+                "location": { value: request.uri || "/" },
+                "set-cookie": { value: cookieValue },
+                "cache-control": { value: "no-cache, no-store" }
+            }
+        };
+    }
+
+    // 3. No cookie, no auth — prompt
     return {
         statusCode: 401,
-        statusDescription: 'Unauthorized',
+        statusDescription: "Unauthorized",
         headers: {
-            'www-authenticate': { value: 'Basic realm="PiLambdaChart Dashboard", charset="UTF-8"' }
+            "www-authenticate": { value: 'Basic realm="PiLambdaChart Dashboard", charset="UTF-8"' }
         }
     };
 }
