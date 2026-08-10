@@ -48,7 +48,7 @@ resource "aws_lambda_function" "chart_generator" {
 resource "aws_cloudwatch_event_rule" "daily_chart_schedule" {
   count               = var.enable_lambda ? 1 : 0
   name                = "${var.project_name}-chart-schedule"
-  description         = "Trigger chart generation Lambda every 5 minutes"
+  description         = "Device 2: Trigger chart generation Lambda every 5 minutes"
   schedule_expression = var.lambda_schedule_cron
 }
 

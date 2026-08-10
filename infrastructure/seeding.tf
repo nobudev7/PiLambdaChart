@@ -16,7 +16,7 @@ resource "aws_dynamodb_table_item" "device_1" {
   item = jsonencode({
     EntityType = { S = "DEVICE" }
     ID         = { N = "1" }
-    Name       = { S = "Water Level Pi" }
+    Name       = { S = "Sump Pump Monitor" }
     Location   = { S = "Basement" }
   })
 }
@@ -114,5 +114,6 @@ resource "aws_dynamodb_table_item" "metric_5" {
     Unit       = { S = "cm" }
     ChartType  = { S = "XYLineChart" }
     Icon       = { S = "📏" }
+    MinYRange = { N = "20" }
   })
 }
