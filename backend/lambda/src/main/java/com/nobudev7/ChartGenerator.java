@@ -70,12 +70,36 @@ public class ChartGenerator {
     private static final Color TEXT_TITLE = new Color(248, 250, 252);  // Slate 50
     private static final Color TEXT_LABEL = new Color(203, 213, 225);  // Slate 300
     private static final Color TEXT_TICK = new Color(148, 163, 184);   // Slate 400
-    
-    // Bright neon accent colors based on metric type
-    private static final Color ACCENT_BLUE = new Color(56, 189, 248);  // Sky 400 (e.g. Temperature, Light)
-    private static final Color ACCENT_GREEN = new Color(52, 211, 153); // Emerald 400 (e.g. Water Level)
-    private static final Color ACCENT_PURPLE = new Color(192, 132, 252); // Purple 400 (e.g. Humidity)
-    private static final Color ACCENT_ORANGE = new Color(251, 146, 60); // Orange 400 (e.g. Motion Count)
+    // 8 distinct accent colors for the dark-slate chart background.
+    // Similar hues are spread apart in the metric ID assignment so that
+    // adjacent metric IDs always have visually distinct colors.
+    //
+    //   Metric ID │ Color        │ RGB                │ Similar pair (distance)
+    //   ──────────┼──────────────┼────────────────────┼────────────────────────
+    //       1     │ Sky Blue     │ ( 56, 189, 248)    │ ↔ Teal (6)     = 5 apart
+    //       2     │ Rose         │ (251, 113, 133)    │ ↔ Fuchsia (8)  = 6 apart
+    //       3     │ Emerald      │ ( 52, 211, 153)    │ ↔ Teal (6)     = 3 apart
+    //       4     │ Orange       │ (251, 146,  60)    │ ↔ Amber (7)    = 3 apart
+    //       5     │ Purple       │ (192, 132, 252)    │ ↔ Fuchsia (8)  = 3 apart
+    //       6     │ Teal         │ ( 45, 212, 191)    │ ↔ Blue (1)     = 5 apart
+    //       7     │ Amber        │ (250, 204,  21)    │ ↔ Orange (4)   = 3 apart
+    //       8     │ Fuchsia      │ (232, 121, 249)    │ ↔ Purple (5)   = 3 apart
+    //     other   │ Sky Blue     │ ( 56, 189, 248)    │ (fallback)
+    //
+    private static final Color ACCENT_BLUE    = new Color( 56, 189, 248);  // Sky 400
+    private static final Color ACCENT_ROSE    = new Color(251, 113, 133);  // Rose 400
+    private static final Color ACCENT_EMERALD = new Color( 52, 211, 153);  // Emerald 400
+    private static final Color ACCENT_ORANGE  = new Color(251, 146,  60);  // Orange 400
+    private static final Color ACCENT_PURPLE  = new Color(192, 132, 252);  // Purple 400
+    private static final Color ACCENT_TEAL    = new Color( 45, 212, 191);  // Teal 400
+    private static final Color ACCENT_AMBER   = new Color(250, 204,  21);  // Yellow 400
+    private static final Color ACCENT_FUCHSIA = new Color(232, 121, 249);  // Fuchsia 400
+
+    // Ordered palette for metric IDs beyond the switch block
+    private static final Color[] ACCENT_PALETTE = {
+        ACCENT_BLUE, ACCENT_ROSE, ACCENT_EMERALD, ACCENT_ORANGE,
+        ACCENT_PURPLE, ACCENT_TEAL, ACCENT_AMBER, ACCENT_FUCHSIA
+    };
 
     public RenderResult generateChartWithMetadata(List<TelemetryData> data, String title, String yAxisLabel, String chartType, int deviceId, int metricId, String metricName, String unit) throws IOException {
         return generateChartWithMetadata(data, title, yAxisLabel, chartType, deviceId, metricId, metricName, unit, null, null);
@@ -135,27 +159,9 @@ public class ChartGenerator {
         plot.setOutlineVisible(false);
         plot.setInsets(new RectangleInsets(10, 15, 10, 35));
 
-        // Determine dynamic accent color depending on Metric ID
-        Color accentColor;
-        switch (metricId) {
-            case 1: // Temperature
-                accentColor = ACCENT_BLUE;
-                break;
-            case 2: // Humidity
-                accentColor = ACCENT_PURPLE;
-                break;
-            case 3: // Lux/Light
-                accentColor = ACCENT_ORANGE;
-                break;
-            case 4: // Motion
-                accentColor = ACCENT_ORANGE;
-                break;
-            case 5: // Water Level
-                accentColor = ACCENT_GREEN;
-                break;
-            default:
-                accentColor = ACCENT_BLUE;
-        }
+        // Determine accent color from the palette.
+        // Metric IDs 1–8 map directly; higher IDs cycle through the palette.
+        Color accentColor = ACCENT_PALETTE[(metricId - 1) % ACCENT_PALETTE.length];
 
         // Configure renderer
         if (isArea) {
