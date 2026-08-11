@@ -40,7 +40,20 @@ lambda_schedule_cron    = "rate(5 minutes)"   # Triggers every 5 minutes
 lambda_trigger_devices  = [1, 2]              # Device IDs to generate charts for
 lambda_trigger_metrics  = [1, 2, 3, 4, 5]     # Metric IDs to generate per device
 lambda_trigger_timezone = "America/New_York"  # Target timezone for day calculation
+# ── Metadata Seeding Configuration ────────────────────────────────────────────
+# When enable_metadata_seeding = true, you can custom-define your physical
+# edge devices and metrics here. You can add any number of items.
+# These will be seeded into the DynamoDB IoT_Metadata table.
 
+seeded_devices = {
+  "1" = { name = "Sump Pump Monitor", location = "Basement" }
+  "2" = { name = "Ambient Monitor",   location = "Bedroom" }
+}
 
-
-
+seeded_metrics = {
+  "1" = { name = "Temperature",   unit = "°C",           chart_type = "XYLineChart", icon = "🌡️", min_y_range = 6 }
+  "2" = { name = "Humidity",      unit = "%",            chart_type = "XYLineChart", icon = "💧" }
+  "3" = { name = "Ambient Light", unit = "Lux",          chart_type = "XYLineChart", icon = "☀️" }
+  "4" = { name = "Motion Count",  unit = "triggers/min", chart_type = "BarChart",    icon = "🔍" }
+  "5" = { name = "Water Level",   unit = "cm",           chart_type = "XYLineChart", icon = "📏", min_y_range = 20 }
+}

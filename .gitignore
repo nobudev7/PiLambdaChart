@@ -35,6 +35,7 @@ replay_pid*
 *.lock.hcl
 *.tfstate
 *.tfstate.backup
+terraform.tfstate.*.backup
 
 # Infrastructure
 metrics-config.json

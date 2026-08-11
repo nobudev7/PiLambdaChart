@@ -1,119 +1,48 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Default Metadata Seed Items for DynamoDB IoT_Metadata
+# Dynamic Metadata Seed Items for DynamoDB IoT_Metadata
 # ─────────────────────────────────────────────────────────────────────────────
-# Automatically inserts default device and metric configurations into the
+# Automatically inserts custom device and metric configurations into the
 # metadata registry table when enable_metadata_seeding = true.
-# Set enable_metadata_seeding = false if metadata is managed dynamically.
+# The list of devices and metrics is defined via variables and can be
+# customized in terraform.tfvars.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Devices
-resource "aws_dynamodb_table_item" "device_1" {
-  count      = var.enable_metadata_seeding ? 1 : 0
+resource "aws_dynamodb_table_item" "devices" {
+  for_each   = var.enable_metadata_seeding ? var.seeded_devices : {}
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
 
   item = jsonencode({
     EntityType = { S = "DEVICE" }
-    ID         = { N = "1" }
-    Name       = { S = "Sump Pump Monitor" }
-    Location   = { S = "Basement" }
+    ID         = { N = each.key }
+    Name       = { S = each.value.name }
+    Location   = { S = each.value.location }
   })
 }
 
-resource "aws_dynamodb_table_item" "device_2" {
-  count      = var.enable_metadata_seeding ? 1 : 0
+# Metrics
+resource "aws_dynamodb_table_item" "metrics" {
+  for_each   = var.enable_metadata_seeding ? var.seeded_metrics : {}
   table_name = aws_dynamodb_table.iot_metadata.name
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
 
-  item = jsonencode({
-    EntityType = { S = "DEVICE" }
-    ID         = { N = "2" }
-    Name       = { S = "Ambient Monitor" }
-    Location   = { S = "Bedroom" }
-  })
-}
-
-# Metrics (Matching IDs 1-5 from config.yaml.example)
-resource "aws_dynamodb_table_item" "metric_1" {
-  count      = var.enable_metadata_seeding ? 1 : 0
-  table_name = aws_dynamodb_table.iot_metadata.name
-  hash_key   = aws_dynamodb_table.iot_metadata.hash_key
-  range_key  = aws_dynamodb_table.iot_metadata.range_key
-
-  item = jsonencode({
-    EntityType = { S = "METRIC" }
-    ID         = { N = "1" }
-    Name       = { S = "Temperature" }
-    Unit       = { S = "°C" }
-    ChartType  = { S = "XYLineChart" }
-    MinYRange  = { N = "6" }
-    Icon       = { S = "🌡️" }
-  })
-}
-
-resource "aws_dynamodb_table_item" "metric_2" {
-  count      = var.enable_metadata_seeding ? 1 : 0
-  table_name = aws_dynamodb_table.iot_metadata.name
-  hash_key   = aws_dynamodb_table.iot_metadata.hash_key
-  range_key  = aws_dynamodb_table.iot_metadata.range_key
-
-  item = jsonencode({
-    EntityType = { S = "METRIC" }
-    ID         = { N = "2" }
-    Name       = { S = "Humidity" }
-    Unit       = { S = "%" }
-    ChartType  = { S = "XYLineChart" }
-    Icon       = { S = "💧" }
-  })
-}
-
-resource "aws_dynamodb_table_item" "metric_3" {
-  count      = var.enable_metadata_seeding ? 1 : 0
-  table_name = aws_dynamodb_table.iot_metadata.name
-  hash_key   = aws_dynamodb_table.iot_metadata.hash_key
-  range_key  = aws_dynamodb_table.iot_metadata.range_key
-
-  item = jsonencode({
-    EntityType = { S = "METRIC" }
-    ID         = { N = "3" }
-    Name       = { S = "Ambient Light" }
-    Unit       = { S = "Lux" }
-    ChartType  = { S = "XYLineChart" }
-    Icon       = { S = "☀️" }
-  })
-}
-
-resource "aws_dynamodb_table_item" "metric_4" {
-  count      = var.enable_metadata_seeding ? 1 : 0
-  table_name = aws_dynamodb_table.iot_metadata.name
-  hash_key   = aws_dynamodb_table.iot_metadata.hash_key
-  range_key  = aws_dynamodb_table.iot_metadata.range_key
-
-  item = jsonencode({
-    EntityType = { S = "METRIC" }
-    ID         = { N = "4" }
-    Name       = { S = "Motion Count" }
-    Unit       = { S = "triggers/min" }
-    ChartType  = { S = "BarChart" }
-    Icon       = { S = "🔍" }
-  })
-}
-
-resource "aws_dynamodb_table_item" "metric_5" {
-  count      = var.enable_metadata_seeding ? 1 : 0
-  table_name = aws_dynamodb_table.iot_metadata.name
-  hash_key   = aws_dynamodb_table.iot_metadata.hash_key
-  range_key  = aws_dynamodb_table.iot_metadata.range_key
-
-  item = jsonencode({
-    EntityType = { S = "METRIC" }
-    ID         = { N = "5" }
-    Name       = { S = "Water Level" }
-    Unit       = { S = "cm" }
-    ChartType  = { S = "XYLineChart" }
-    Icon       = { S = "📏" }
-    MinYRange = { N = "20" }
-  })
+  # Construct item conditionally based on optional parameters
+  item = jsonencode(
+    merge(
+      {
+        EntityType = { S = "METRIC" }
+        ID         = { N = each.key }
+        Name       = { S = each.value.name }
+        Unit       = { S = each.value.unit }
+        ChartType  = { S = each.value.chart_type }
+        Icon       = { S = each.value.icon }
+      },
+      each.value.min_y_range != null ? {
+        MinYRange = { N = tostring(each.value.min_y_range) }
+      } : {}
+    )
+  )
 }

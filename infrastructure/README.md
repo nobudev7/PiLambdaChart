@@ -36,18 +36,34 @@ Stores device and metric metadata. Read dynamically by the Lambda generator, CLI
 
 ## Metadata Seeding & State Control
 
-Seed data is defined in [`seeding.tf`](seeding.tf) and populates default device and metric records during initial setup.
+Seed data is dynamically generated using configurations defined in `terraform.tfvars` and parsed via [`seeding.tf`](seeding.tf). This allows you to completely decouple your private device and metric setup from the git repository.
+
+### Configuring Seed Data in `terraform.tfvars`
+
+To define your custom devices and metrics, add them to `terraform.tfvars` (which is gitignored by default):
+
+```hcl
+seeded_devices = {
+  "1" = { name = "Sump Pump Monitor", location = "Basement" }
+  "2" = { name = "Ambient Monitor",   location = "Bedroom" }
+}
+
+seeded_metrics = {
+  "1" = { name = "Temperature",   unit = "°C",           chart_type = "XYLineChart", icon = "🌡️", min_y_range = 6 }
+  "2" = { name = "Humidity",      unit = "%",            chart_type = "XYLineChart", icon = "💧" }
+}
+```
 
 ### Controlling Seed State via `enable_metadata_seeding`
 
-You can control whether Terraform manages seed items using the `enable_metadata_seeding` toggle in `terraform.tfvars`:
+You can control whether Terraform manages these seed items using the `enable_metadata_seeding` toggle in `terraform.tfvars`:
 
 ```hcl
 # Set to false if metadata is managed dynamically out-of-band in DynamoDB
 enable_metadata_seeding = false
 ```
 
-- **`enable_metadata_seeding = true` (Default)**: Terraform provisions default seed items for initial environment creation.
+- **`enable_metadata_seeding = true` (Default)**: Terraform provisions the device and metric items defined in `seeded_devices` and `seeded_metrics` variables.
 - **`enable_metadata_seeding = false`**: Disables Terraform management of `IoT_Metadata` seed items (`count = 0`). This prevents `terraform plan` / `terraform apply` from overwriting or deleting custom attributes (such as `MinYRange` or `Icon`) modified directly in DynamoDB.
 
 #### Alternative: Manual Bulk Seeding

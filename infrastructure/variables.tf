@@ -121,5 +121,26 @@ variable "lambda_trigger_timezone" {
   default     = "America/New_York"
 }
 
+variable "seeded_devices" {
+  description = "Map of device metadata to seed into DynamoDB IoT_Metadata table."
+  type = map(object({
+    name     = string
+    location = string
+  }))
+  default = {}
+}
+
+variable "seeded_metrics" {
+  description = "Map of metric metadata to seed into DynamoDB IoT_Metadata table."
+  type = map(object({
+    name        = string
+    unit        = string
+    chart_type  = string
+    icon        = string
+    min_y_range = optional(number)
+  }))
+  default = {}
+}
+
 
 
