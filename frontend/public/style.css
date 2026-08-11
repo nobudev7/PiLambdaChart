@@ -431,6 +431,13 @@ body.sidebar-collapsed .main-wrapper { margin-left: var(--sidebar-collapsed); }
   gap: 8px;
 }
 
+.day-dow-wrap {
+  font-weight: 400;
+}
+.day-dow-weekday { color: var(--text-primary); }
+.day-dow-sat     { color: hsl(210, 100%, 68%); }
+.day-dow-sun     { color: hsl(0, 85%, 62%); }
+
 .day-tag {
   font-size: 0.72rem;
   font-weight: 700;

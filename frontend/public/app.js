@@ -482,7 +482,15 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
 
   const dateLabel = document.createElement('span');
   dateLabel.className = 'day-date';
-  dateLabel.textContent = formatDate(dateStr);
+
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayOfWeek = dateObj.getDay(); // 0=Sun, 6=Sat
+  const dowText = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+  const dowClass = dayOfWeek === 0 ? 'day-dow-sun' : dayOfWeek === 6 ? 'day-dow-sat' : 'day-dow-weekday';
+
+  dateLabel.innerHTML =
+    `${formatDate(dateStr)} <span class="day-dow-wrap">( <span class="${dowClass}">${dowText}</span> )</span>`;
 
   header.appendChild(dateLabel);
 
@@ -511,13 +519,13 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
   tilesGrid.className = 'chart-tiles';
   tilesGrid.style.setProperty('--tile-cols', cols);
 
-  const [y, m, d] = dateStr.split('-');
+  const yStr = dateStr.slice(0, 4), mStr = dateStr.slice(5, 7), dStr = dateStr.slice(8, 10);
   const tilesList = [];
 
   metricIds.forEach(metId => {
     const meta = METRIC_META[metId] || { name: `Metric ${metId}`, unit: '', icon: '📊' };
-    const imgUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${y}/${m}/${metId}-${y}${m}${d}.png`;
-    const jsonUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${y}/${m}/${metId}-${y}${m}${d}.json`;
+    const imgUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${yStr}/${mStr}/${metId}-${yStr}${mStr}${dStr}.png`;
+    const jsonUrl = `${DATA_BASE_URL}/${deviceId}/${metId}/${yStr}/${mStr}/${metId}-${yStr}${mStr}${dStr}.json`;
 
     const tile = document.createElement('div');
     tile.className = 'chart-tile';
@@ -528,7 +536,7 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
          <span>${meta.icon}</span>
          <span class="tile-metric-name">${meta.name}</span>
        </div>
-       <div class="tile-img-wrapper" id="tile-wrap-${deviceId}-${metId}-${y}${m}${d}">
+       <div class="tile-img-wrapper" id="tile-wrap-${deviceId}-${metId}-${yStr}${mStr}${dStr}">
          <div class="tile-placeholder">
            <div class="spinner spinner-sm"></div>
          </div>
@@ -547,7 +555,7 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
     tile.addEventListener('click', () => {
       const imgEl = tile.querySelector('.tile-img');
       if (imgEl.src && !imgEl.classList.contains('loading')) {
-        const titleText = `Device ${deviceId} · ${meta.name} — ${formatDate(dateStr)}`;
+        const titleText = `${getDeviceDisplayName(deviceId)} · ${meta.name} — ${formatDate(dateStr)} <span class="day-dow-wrap">( <span class="${dowClass}">${dowText}</span> )</span>`;
         openChartModal(imgUrl, jsonUrl, titleText, meta);
       }
     });
@@ -751,7 +759,7 @@ function openChartModal(imgSrc, jsonUrl, titleText, meta) {
   if (!modal || !modalImg || !wrapper) return;
 
   modalImg.src = imgSrc;
-  if (modalTitle) modalTitle.textContent = titleText || '';
+  if (modalTitle) modalTitle.innerHTML = titleText || '';
 
   // Clean previous crosshair elements
   wrapper.querySelectorAll('.crosshair-line, .crosshair-dot, .chart-tooltip').forEach(el => el.remove());
