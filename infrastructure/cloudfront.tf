@@ -44,6 +44,7 @@ resource "aws_cloudfront_function" "basic_auth" {
 var AUTH_STRING = "Basic ${base64encode("${var.basic_auth_username}:${var.basic_auth_password}")}";
 var COOKIE_NAME = "__plc_auth";
 var COOKIE_MAX_AGE = 2592000; // 30 days in seconds
+var REDIRECT_FLAG = "__plc_r";
 
 // Simple hash of the password to use as the cookie token.
 // Not cryptographic, but sufficient for a private dashboard —
@@ -62,34 +63,48 @@ function handler(event) {
     var request = event.request;
     var headers = request.headers;
 
-    // 1. Check for valid auth cookie
-    if (headers.cookie) {
-        var cookies = headers.cookie.value;
-        var match = cookies.match(new RegExp("(?:^|;\\s*)" + COOKIE_NAME + "=([^;]+)"));
-        if (match && match[1] === VALID_TOKEN) {
-            return request; // Cookie valid — pass through
-        }
+    // 1. Check for valid auth cookie (using native request.cookies in runtime 2.0)
+    if (request.cookies && request.cookies[COOKIE_NAME] && request.cookies[COOKIE_NAME].value === VALID_TOKEN) {
+        return request; // Cookie valid — pass through
     }
 
-    // 2. Check Basic Auth header
+    // 2. Prevent infinite redirect loops (e.g. if cookies are blocked by the browser)
+    if (request.querystring && request.querystring[REDIRECT_FLAG]) {
+        return request; // Already tried redirecting once, fallback to normal auth pass-through
+    }
+
+    // 3. Check Basic Auth header
     if (headers.authorization && headers.authorization.value === AUTH_STRING) {
-        // Auth successful — set a persistent cookie and redirect to strip the
-        // Authorization header from the browser's memory, then serve normally.
-        var cookieValue = COOKIE_NAME + "=" + VALID_TOKEN
-            + "; Path=/; Max-Age=" + COOKIE_MAX_AGE
-            + "; Secure; HttpOnly; SameSite=Lax";
+        // Build redirect URI preserving other query parameters, adding the redirect flag
+        var redirectUri = request.uri;
+        var qs = [];
+        if (request.querystring) {
+            for (var key in request.querystring) {
+                if (key !== REDIRECT_FLAG) {
+                    qs.push(key + "=" + request.querystring[key].value);
+                }
+            }
+        }
+        qs.push(REDIRECT_FLAG + "=1");
+        redirectUri += "?" + qs.join("&");
+
         return {
             statusCode: 302,
             statusDescription: "Found",
             headers: {
-                "location": { value: request.uri || "/" },
-                "set-cookie": { value: cookieValue },
+                "location": { value: redirectUri },
                 "cache-control": { value: "no-cache, no-store" }
+            },
+            cookies: {
+                "__plc_auth": {
+                    value: VALID_TOKEN,
+                    attributes: "Path=/; Max-Age=" + COOKIE_MAX_AGE + "; Secure; HttpOnly; SameSite=Lax"
+                }
             }
         };
     }
 
-    // 3. No cookie, no auth — prompt
+    // 4. No cookie, no auth — prompt
     return {
         statusCode: 401,
         statusDescription: "Unauthorized",

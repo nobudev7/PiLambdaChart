@@ -122,8 +122,8 @@ cd frontend/
 |:---|:---|
 | `index.html` | `no-cache, no-store, must-revalidate` |
 | `output/file-list.json` & `output/metadata.json` | `public, max-age=60` |
-| `output/*.png` & `output/*.json` sidecars | `public, max-age=3600` |
-| `*.css`, `*.js` static assets | `public, max-age=31536000, immutable` |
+| `output/*.png` & `output/*.json` sidecars | `public, max-age=300` |
+| `*.css`, `*.js` static assets | `public, max-age=60, must-revalidate` |
 
 ---
 

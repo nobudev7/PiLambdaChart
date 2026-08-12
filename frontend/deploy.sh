@@ -91,40 +91,40 @@ if [[ "$DRY_RUN" == true ]]; then
   DRY="--dryrun"
 fi
 
-# ── Step 1: Upload static assets (JS, CSS) — long cache ─────────────────────
-echo "▶ Uploading static CSS assets — cache 1 year…"
+# ── Step 1: Upload static assets (JS, CSS) — short cache with revalidation ──
+echo "▶ Uploading static CSS assets — cache 60s…"
 "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR" "s3://$BUCKET" \
   ${DRY:+"$DRY"} \
   --exclude "*" \
   --include "*.css" \
-  --cache-control "public, max-age=31536000, immutable" \
+  --cache-control "public, max-age=60, must-revalidate" \
   --content-type "text/css"
 
-echo "▶ Uploading static JS assets — cache 1 year…"
+echo "▶ Uploading static JS assets — cache 60s…"
 "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR" "s3://$BUCKET" \
   ${DRY:+"$DRY"} \
   --exclude "*" \
   --include "*.js" \
-  --cache-control "public, max-age=31536000, immutable" \
+  --cache-control "public, max-age=60, must-revalidate" \
   --content-type "application/javascript"
 
 # ── Step 2: Upload chart PNGs and JSON sidecars (optional) ─────────────────
 if [[ "$INCLUDE_OUTPUT" == true ]]; then
-  echo "▶ Uploading chart PNGs — cache 1 hour…"
+  echo "▶ Uploading chart PNGs — cache 5 min…"
   "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
     ${DRY:+"$DRY"} \
     --exclude "*" \
     --include "*.png" \
-    --cache-control "public, max-age=3600" \
+    --cache-control "public, max-age=300" \
     --content-type "image/png"
 
-  echo "▶ Uploading chart data JSON sidecars — cache 1 hour…"
+  echo "▶ Uploading chart data JSON sidecars — cache 5 min…"
   "${AWS_CMD[@]}" s3 sync "$PUBLIC_DIR/output" "s3://$BUCKET/output" \
     ${DRY:+"$DRY"} \
     --exclude "*" \
     --exclude "file-list.json" \
     --include "*.json" \
-    --cache-control "public, max-age=3600" \
+    --cache-control "public, max-age=300" \
     --content-type "application/json"
 
   # ── Step 3: Upload file-list.json & metadata.json ─────────────────────────
