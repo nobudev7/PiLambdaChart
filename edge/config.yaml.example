@@ -82,3 +82,21 @@ sensors:
     metrics:
       water_level:
         metric_id: 5
+
+  # Example 5: DFRobot C4002 24GHz mmWave Radar (1-Minute Aggregated Presence)
+  - type: "c4002"
+    port: "/dev/serial0"    # Default UART port on Raspberry Pi (TX=Pin 8, RX=Pin 10)
+    baudrate: 115200
+    poll_interval: 60       # Aggregation and upload window in seconds
+    sample_interval: 1.0    # Background UART sampling frequency (1 Hz)
+    simulation: true        # Set to false on physical Raspberry Pi with C4002 attached
+    metrics:
+      occupancy:
+        metric_id: 6        # Occupancy ratio (% of minute present)
+      distance:
+        metric_id: 7        # Average presence distance in meters
+      motion:
+        metric_id: 8        # Peak motion energy (0 - 100)
+      light:
+        metric_id: 9        # Average ambient light (Lux)
+

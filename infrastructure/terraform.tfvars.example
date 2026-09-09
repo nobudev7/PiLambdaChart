@@ -38,7 +38,7 @@ enable_lambda           = false               # Set to true after building backe
 lambda_memory_size      = 512                 # Memory in MB allocated to Lambda (default: 512)
 lambda_schedule_cron    = "rate(5 minutes)"   # Triggers every 5 minutes
 lambda_trigger_devices  = [1, 2]              # Device IDs to generate charts for
-lambda_trigger_metrics  = [1, 2, 3, 4, 5]     # Metric IDs to generate per device
+lambda_trigger_metrics  = [1, 2, 3, 4, 5, 6, 7, 8, 9] # Metric IDs to generate per device (e.g. 1-5 DHT/PIR/Ultrasonic, 6-9 C4002 radar)
 lambda_trigger_timezone = "America/New_York"  # Target timezone for day calculation
 # ── Metadata Seeding Configuration ────────────────────────────────────────────
 # When enable_metadata_seeding = true, you can custom-define your physical
@@ -51,9 +51,13 @@ seeded_devices = {
 }
 
 seeded_metrics = {
-  "1" = { name = "Temperature",   unit = "°C",           chart_type = "XYLineChart", icon = "🌡️", min_y_range = 6 }
-  "2" = { name = "Humidity",      unit = "%",            chart_type = "XYLineChart", icon = "💧" }
-  "3" = { name = "Ambient Light", unit = "Lux",          chart_type = "XYLineChart", icon = "☀️" }
-  "4" = { name = "Motion Count",  unit = "triggers/min", chart_type = "BarChart",    icon = "🔍" }
-  "5" = { name = "Water Level",   unit = "cm",           chart_type = "XYLineChart", icon = "📏", min_y_range = 20 }
+  "1" = { name = "Temperature",        unit = "°C",           chart_type = "XYLineChart", icon = "🌡️", min_y_range = 6 }
+  "2" = { name = "Humidity",           unit = "%",            chart_type = "XYLineChart", icon = "💧" }
+  "3" = { name = "Ambient Light",      unit = "Lux",          chart_type = "XYLineChart", icon = "☀️" }
+  "4" = { name = "Motion Count",       unit = "triggers/min", chart_type = "BarChart",    icon = "🔍" }
+  "5" = { name = "Water Level",        unit = "cm",           chart_type = "XYLineChart", icon = "📏", min_y_range = 20 }
+  "6" = { name = "Radar Occupancy",    unit = "%",            chart_type = "XYAreaChart", icon = "🚶", min_y_range = 100 }
+  "7" = { name = "Radar Distance",     unit = "m",            chart_type = "XYLineChart", icon = "📏", min_y_range = 2 }
+  "8" = { name = "Radar Peak Motion",  unit = "pts",          chart_type = "XYLineChart", icon = "🔥", min_y_range = 100 }
+  "9" = { name = "Radar Ambient Light", unit = "Lux",         chart_type = "XYLineChart", icon = "💡", min_y_range = 50 }
 }

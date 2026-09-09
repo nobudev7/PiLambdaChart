@@ -34,6 +34,7 @@ The PiLambdaChart Edge Client is built on a modular, decoupled, and event-driven
    * **BH1750 Sensor** (`bh1750_sensor.py`): Collects ambient light lux readings via I2C bus.
    * **PIR Motion Sensor** (`pir_motion.py`): Hooks into hardware GPIO interrupts to accumulate motion trigger counts over interval windows.
    * **Ultrasonic Sensor** (`ultrasonic.py`): Measures fluid/water levels.
+   * **C4002 mmWave Radar** (`c4002_sensor.py`): Samples human presence, distance, peak motion energy, and ambient light at 1 Hz and computes clean 1-minute windowed aggregations.
    * *Hardware Simulation Fallback*: All drivers feature an automatic fallback to simulation/mock telemetry data if physical GPIO libraries fail to load (e.g., when running on standard laptops/desktops).
 
 3. **Database Uploader Integration**:

@@ -71,7 +71,61 @@
           "ID": { "N": "5" },
           "Name": { "S": "Water Level" },
           "Unit": { "S": "cm" },
-          "ChartType": { "S": "XYLineChart" }
+          "ChartType": { "S": "XYLineChart" },
+          "Icon": { "S": "📏" },
+          "MinYRange": { "N": "20" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "6" },
+          "Name": { "S": "Radar Occupancy" },
+          "Unit": { "S": "%" },
+          "ChartType": { "S": "XYAreaChart" },
+          "Icon": { "S": "🚶" },
+          "MinYRange": { "N": "100" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "7" },
+          "Name": { "S": "Radar Distance" },
+          "Unit": { "S": "m" },
+          "ChartType": { "S": "XYLineChart" },
+          "Icon": { "S": "📏" },
+          "MinYRange": { "N": "2" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "8" },
+          "Name": { "S": "Radar Peak Motion" },
+          "Unit": { "S": "pts" },
+          "ChartType": { "S": "XYLineChart" },
+          "Icon": { "S": "🔥" },
+          "MinYRange": { "N": "100" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "EntityType": { "S": "METRIC" },
+          "ID": { "N": "9" },
+          "Name": { "S": "Radar Ambient Light" },
+          "Unit": { "S": "Lux" },
+          "ChartType": { "S": "XYLineChart" },
+          "Icon": { "S": "💡" },
+          "MinYRange": { "N": "50" }
         }
       }
     }
