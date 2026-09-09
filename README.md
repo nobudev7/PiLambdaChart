@@ -36,7 +36,7 @@ PiLambdaChart connects asynchronous edge sensors on Raspberry Pi devices with a 
 The repository is modularized into four component tiers. Click each module's link for detailed setup and usage documentation:
 
 *   [`backend/`](backend/README.md) — **Java Compute Tier & CLI**: Java Maven project (`ChartGeneratorHandler` & `ChartGeneratorCLI`) querying DynamoDB telemetry and rendering JFreeChart PNGs and JSON sidecars.
-*   [`edge/`](edge/README.md) — **Raspberry Pi Edge Client**: Asynchronous Python agent (`agent.py`) running on Raspberry Pi edge devices to gather sensor data (temperature, humidity, light, motion, water level), manage retry buffers, and upload readings to DynamoDB.
+*   [`edge/`](edge/README.md) — **Raspberry Pi Edge Client**: Asynchronous Python agent (`agent.py`) running on Raspberry Pi edge devices to gather sensor data (temperature, humidity, light, motion, water level, mmWave radar presence), manage retry buffers, and upload readings to DynamoDB.
 *   [`frontend/`](frontend/README.md) — **Web Telemetry Dashboard**: HSL dark-slate static web dashboard (`app.js`, `style.css`, `index.html`) featuring dynamic metadata loading, sticky date dividers, synchronized crosshairs, and lightbox modals.
 *   [`infrastructure/`](infrastructure/README.md) — **Terraform Infrastructure as Code**: Declarative AWS IaC provisioning DynamoDB tables, S3 chart bucket, Java Lambda function, EventBridge schedules, CloudFront CDN, and IAM least-privilege security policies.
 
@@ -53,6 +53,7 @@ To recreate and deploy this system from scratch, you will need the following har
     *   **Ambient Light**: BH1750 I2C lux sensor.
     *   **Motion**: PIR Motion sensor.
     *   **Water / Fluid Level**: HC-SR04 ultrasonic distance sensor.
+    *   **Human Presence Radar**: DFRobot C4002 (SEN0691) 24GHz mmWave radar module (`c4002-python`).
     *   Breadboard, resistors, and GPIO jumper wires.
 
 ### 2. Developer Tooling & Runtimes
@@ -78,7 +79,7 @@ To recreate and deploy this system from scratch, you will need the following har
 Follow these steps to recreate and deploy the complete PiLambdaChart platform from scratch. Detailed configuration guides for each module are linked in their respective steps.
 
 ### Step 1: Set Up Raspberry Pi & Test Sensors Locally
-1. Wire physical sensors (DHT22, BH1750, PIR motion, HC-SR04) to Raspberry Pi GPIO/I2C pins.
+1. Wire physical sensors (DHT22, BH1750, PIR motion, HC-SR04, C4002 mmWave radar) to Raspberry Pi GPIO/I2C/UART pins.
 2. Run standalone test scripts under [`edge/sensor_check/`](edge/sensor_check/) to verify sensor hardware functionality locally.
    - *Details: [`edge/README.md`](edge/README.md)*
 
@@ -138,6 +139,7 @@ In a production environment, PiLambdaChart runs **Raspberry Pi** devices connect
 - **Ambient Light**: BH1750 I2C lux sensor
 - **Motion Events**: PIR motion sensor (GPIO interrupt counting)
 - **Water / Fluid Level**: HC-SR04 ultrasonic distance sensor
+- **Human Presence & Radar Tracking**: DFRobot C4002 24GHz mmWave radar module
 
 *Raspberry Pi edge device connected to 3 sensors - DHT22, BH1750, and PIR motion sensor.*<br/>
 ![Raspberry Pi & Physical Sensors Setup](documents/images/raspi_with_3_sensors.jpg)

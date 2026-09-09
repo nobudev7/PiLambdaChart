@@ -12,12 +12,13 @@ This folder contains the Python telemetry agent running on Raspberry Pi edge dev
     *   `bh1750_sensor.py`: Driver for BH1750 ambient light lux sensors.
     *   `pir_motion.py`: Driver for PIR Motion sensors, counting motion events over interval windows.
     *   `ultrasonic.py`: Driver for HC-SR04 ultrasonic sensors measuring water/fluid levels.
+    *   `c4002_sensor.py`: Driver for DFRobot C4002 24GHz mmWave radar measuring 1-min aggregated occupancy, distance, motion, and ambient light.
 *   `src/uploaders/`: Upload target drivers:
     *   `dynamodb.py`: Decoupled AWS DynamoDB uploader formatting keys (`{DeviceID}#{MetricID}#{UTCYear}`) and executing async batch uploads.
-*   `requirements.txt`: Python dependencies for Raspberry Pi 3 / 4 (`RPi.GPIO`).
+*   `requirements.txt`: Python dependencies for Raspberry Pi 3 / 4 (`RPi.GPIO`, `pyserial`).
 *   `requirements-lgpio.txt`: Python dependencies for Raspberry Pi 5 (`lgpio`).
 *   `pilambdachart-agent.service`: `systemd` service unit file for automated background execution on boot.
-*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections.
+*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections (`dht.py`, `bh1750.py`, `motion.py`, `c4002-aggregator.py`).
 
 ---
 
