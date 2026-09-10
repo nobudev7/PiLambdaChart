@@ -42,13 +42,30 @@ def main() -> None:
         default=60,
         help="Aggregation window in seconds (default: 60; use e.g. 10 for quick testing)",
     )
-    parser.add_argument(
+    led_group = parser.add_mutually_exclusive_group()
+    led_group.add_argument(
+        "--led-on",
         "--led",
+        dest="led_on",
         action="store_true",
         default=False,
-        help="Turn ON onboard LEDs (default: off / dark stealth mode)",
+        help="Turn ON onboard blue RUN and detection LEDs (restore default)",
+    )
+    led_group.add_argument(
+        "--led-off",
+        dest="led_off",
+        action="store_true",
+        default=False,
+        help="Turn OFF onboard blue RUN and detection LEDs (dark/stealth mode)",
     )
     args = parser.parse_args()
+
+    if args.led_on:
+        led_display = "ON"
+    elif args.led_off:
+        led_display = "OFF"
+    else:
+        led_display = "OFF (default stealth mode)"
 
     print("==========================================================")
     print("      DFRobot C4002 mmWave Radar Diagnostic Check        ")
@@ -56,24 +73,30 @@ def main() -> None:
     print(f"  • Serial Port       : {args.port}")
     print(f"  • Baudrate          : {args.baudrate}")
     print(f"  • Aggregation Window: {args.interval} seconds")
-    print(f"  • Onboard LEDs      : {'ON' if args.led else 'OFF (default stealth mode)'}")
+    print(f"  • Onboard LEDs      : {led_display}")
     print("Press Ctrl+C to stop.\n")
 
     sensor = C4002Sensor(port=args.port, baudrate=args.baudrate)
 
     try:
         sensor.connect()
+
+        # Configure onboard LEDs (default: off / stealth mode)
+        if hasattr(sensor, "set_led"):
+            if args.led_on:
+                sensor.set_led(run_led=True, out_led=True)
+                time.sleep(0.05)
+            else:
+                if hasattr(sensor, "turn_off_leds"):
+                    sensor.turn_off_leds()
+                else:
+                    sensor.set_led(run_led=False, out_led=False)
+                time.sleep(0.05)
+
         # Set hardware reporting interval to 1.0s (10 * 100ms)
         if hasattr(sensor, "set_report_period"):
             sensor.set_report_period(10)
             time.sleep(0.1)
-
-        # Configure onboard LEDs (default: off / stealth mode)
-        if hasattr(sensor, "set_led"):
-            if args.led:
-                sensor.set_led(run_led=True, out_led=True)
-            else:
-                sensor.turn_off_leds()
 
         # Flush any stale packets that were buffered before starting
         if sensor.ser and hasattr(sensor.ser, "reset_input_buffer"):

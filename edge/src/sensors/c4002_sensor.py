@@ -10,11 +10,29 @@ from sensors.base_sensor import BaseSensor
 logger = logging.getLogger(__name__)
 
 try:
-    from c4002 import C4002Sensor as C4002Driver
+    from c4002 import (
+        C4002Sensor as C4002Driver,
+        LED_KEEP,
+        LED_OFF,
+        LED_ON,
+        LedMode,
+    )
     HAS_C4002_LIB = True
 except ImportError:
-    HAS_C4002_LIB = False
-    logger.warning("c4002 library not found. C4002 sensor will run in simulation mode.")
+    try:
+        from c4002 import C4002Sensor as C4002Driver
+        HAS_C4002_LIB = True
+        LedMode = None
+        LED_ON = 1
+        LED_OFF = 0
+        LED_KEEP = 255
+    except ImportError:
+        HAS_C4002_LIB = False
+        LedMode = None
+        LED_ON = 1
+        LED_OFF = 0
+        LED_KEEP = 255
+        logger.warning("c4002 library not found. C4002 sensor will run in simulation mode.")
 
 
 class C4002Sensor(BaseSensor):
@@ -29,6 +47,40 @@ class C4002Sensor(BaseSensor):
       4. Average Ambient Light Intensity (Lux)
     """
 
+    @staticmethod
+    def _parse_led_mode(val: Any, default: int = LED_OFF) -> int:
+        """
+        Parse flexible LED configuration values into an integer mode:
+        LED_OFF (0), LED_ON (1), or LED_KEEP (255 / 0xFF).
+        Accepts bool, int, or case-insensitive string values ('on', 'off', 'keep', 'true', 'false').
+        """
+        if val is None:
+            return default
+        if isinstance(val, bool):
+            return LED_ON if val else LED_OFF
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            cleaned = val.strip().lower()
+            if cleaned in ("on", "true", "1", "yes", "enable", "enabled"):
+                return LED_ON
+            if cleaned in ("off", "false", "0", "no", "disable", "disabled"):
+                return LED_OFF
+            if cleaned in ("keep", "unchanged", "default"):
+                return LED_KEEP
+        return default
+
+    @staticmethod
+    def _format_led_mode(mode: int) -> str:
+        """Format LED mode integer for human-readable logging."""
+        if mode == LED_ON:
+            return "ON"
+        if mode == LED_OFF:
+            return "OFF"
+        if mode == LED_KEEP:
+            return "KEEP"
+        return str(mode)
+
     def __init__(self, device_id: int, config: dict):
         super().__init__(device_id, config)
         self.port = self.config.get("port", "/dev/serial0")
@@ -42,7 +94,7 @@ class C4002Sensor(BaseSensor):
         self.motion_metric_id = metrics_cfg.get("motion", {}).get("metric_id")
         self.light_metric_id = metrics_cfg.get("light", {}).get("metric_id")
 
-        # LED configuration: False by default (dark/stealth mode). Set to True to enable.
+        # LED configuration: False by default (dark/stealth mode). Set to True / "on" to enable.
         # Can also be a dict: {"run": False, "out": True}
         self.led_config = self.config.get("led", self.config.get("leds", False))
 
@@ -67,24 +119,36 @@ class C4002Sensor(BaseSensor):
             try:
                 self.sensor = C4002Driver(port=self.port, baudrate=self.baudrate)
                 self.sensor.connect()
-                # Set hardware reporting interval to 1.0s (10 * 100ms)
-                if hasattr(self.sensor, "set_report_period"):
-                    self.sensor.set_report_period(10)
-                    await asyncio.sleep(0.1)
 
                 # Configure onboard LEDs (default: turned off / stealth mode)
                 if hasattr(self.sensor, "set_led"):
                     if isinstance(self.led_config, dict):
-                        run_state = self.led_config.get("run", True)
-                        out_state = self.led_config.get("out", True)
-                        self.sensor.set_led(run_led=run_state, out_led=out_state)
-                        logger.info(f"C4002 onboard LEDs configured: RUN={run_state}, OUT={out_state}")
-                    elif self.led_config:
-                        self.sensor.set_led(run_led=True, out_led=True)
-                        logger.info("C4002 onboard LEDs turned ON.")
+                        run_mode = self._parse_led_mode(self.led_config.get("run"), default=LED_OFF)
+                        out_mode = self._parse_led_mode(self.led_config.get("out"), default=LED_OFF)
+                        self.sensor.set_led(run_led=run_mode, out_led=out_mode)
+                        logger.info(
+                            f"C4002 onboard LEDs configured: RUN={self._format_led_mode(run_mode)}, "
+                            f"OUT={self._format_led_mode(out_mode)}"
+                        )
                     else:
-                        self.sensor.turn_off_leds()
-                        logger.info("C4002 onboard LEDs turned OFF (default dark/stealth mode).")
+                        led_mode = self._parse_led_mode(self.led_config, default=LED_OFF)
+                        if led_mode == LED_ON:
+                            self.sensor.set_led(run_led=LED_ON, out_led=LED_ON)
+                            logger.info("C4002 onboard LEDs turned ON.")
+                        elif led_mode == LED_KEEP:
+                            logger.info("C4002 onboard LEDs preserved (hardware state unchanged).")
+                        else:
+                            if hasattr(self.sensor, "turn_off_leds"):
+                                self.sensor.turn_off_leds()
+                            else:
+                                self.sensor.set_led(run_led=LED_OFF, out_led=LED_OFF)
+                            logger.info("C4002 onboard LEDs turned OFF (default dark/stealth mode).")
+                    await asyncio.sleep(0.05)
+
+                # Set hardware reporting interval to 1.0s (10 * 100ms)
+                if hasattr(self.sensor, "set_report_period"):
+                    self.sensor.set_report_period(10)
+                    await asyncio.sleep(0.1)
 
                 # Flush any stale packets that were buffered before starting
                 if self.sensor.ser and hasattr(self.sensor.ser, "reset_input_buffer"):

@@ -90,7 +90,7 @@ sensors:
     poll_interval: 60       # Aggregation and upload window in seconds
     sample_interval: 1.0    # Background UART sampling frequency (1 Hz)
     simulation: true        # Set to false on physical Raspberry Pi with C4002 attached
-    led: false              # Onboard LEDs: false (default: dark/stealth mode), true to enable
+    led: false              # Onboard LEDs: false/"off" (default stealth mode), true/"on" to enable, or {run: false, out: true}
     metrics:
       occupancy:
         metric_id: 6        # Occupancy ratio (% of minute present)

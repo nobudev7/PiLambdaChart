@@ -150,6 +150,32 @@ python src/put_datapoint.py --timestamp now --value 65.2 --device-id 2 --metric-
 
 ---
 
+## Hardware Diagnostic Checks (`sensor_check/`)
+
+Standalone diagnostic scripts are available in `sensor_check/` to test sensors and verify GPIO/UART connections independently before starting the agent daemon:
+
+| Script | Target Sensor | Notes / Usage |
+| :--- | :--- | :--- |
+| `sensor_check/dht.py` | DHT22 | Tests pin read (default: GPIO 24) |
+| `sensor_check/bh1750.py` | BH1750 | Ambient light over I2C |
+| `sensor_check/motion.py` | PIR Motion | Listens for GPIO motion interrupts (GPIO 23) |
+| `sensor_check/c4002-aggregator.py` | C4002 mmWave Radar | 1 Hz UART sampling with windowed aggregations |
+
+### C4002 mmWave Radar Diagnostic (`c4002-aggregator.py`)
+
+```bash
+# Test C4002 with default stealth mode (onboard LEDs OFF, 60s aggregation window)
+python sensor_check/c4002-aggregator.py
+
+# Quick 10-second test window with onboard LEDs turned ON
+python sensor_check/c4002-aggregator.py --interval 10 --led-on
+
+# Explicitly ensure onboard LEDs are turned OFF (dark/stealth mode)
+python sensor_check/c4002-aggregator.py --led-off
+```
+
+---
+
 ## Production Deployment on Raspberry Pi
 
 1. Clone repository (or use `sparse-checkout` for the `edge` folder only):
