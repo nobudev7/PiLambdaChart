@@ -59,17 +59,25 @@ def main() -> None:
         # Set hardware reporting interval to 1.0s (10 * 100ms)
         if hasattr(sensor, "set_report_period"):
             sensor.set_report_period(10)
+            time.sleep(0.1)
+
+        # Flush any stale packets that were buffered before starting
+        if sensor.ser and hasattr(sensor.ser, "reset_input_buffer"):
+            sensor.ser.reset_input_buffer()
+
         print("Connected to C4002. Collecting 1-second samples...\n")
 
         window_samples = []
         window_start = time.time()
 
         while True:
+            # Blocks until the next packet arrives from the sensor (1.0s pacing)
             packet = sensor.read_packet()
             if packet and not getattr(packet, "is_calibrating", False):
                 window_samples.append(packet)
 
-            elapsed = time.time() - window_start
+            now = time.time()
+            elapsed = now - window_start
             if elapsed >= args.interval:
                 if window_samples:
                     total_samples = len(window_samples)
@@ -95,7 +103,7 @@ def main() -> None:
                         statistics.mean(s.ambient_light_lux for s in window_samples), 1
                     )
 
-                    timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                    timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
                     print(
                         f"[{timestamp_str}] Occupancy: {occupancy_pct:5.1f}% | "
                         f"Distance: {dist_display:<8} | "
@@ -104,9 +112,7 @@ def main() -> None:
                     )
 
                 window_samples.clear()
-                window_start = time.time()
-
-            time.sleep(1.0)
+                window_start = now
 
     except KeyboardInterrupt:
         print("\nStopping C4002 diagnostic check...")

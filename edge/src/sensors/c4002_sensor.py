@@ -66,6 +66,10 @@ class C4002Sensor(BaseSensor):
                 # Set hardware reporting interval to 1.0s (10 * 100ms)
                 if hasattr(self.sensor, "set_report_period"):
                     self.sensor.set_report_period(10)
+                    await asyncio.sleep(0.1)
+                # Flush any stale packets that were buffered before starting
+                if self.sensor.ser and hasattr(self.sensor.ser, "reset_input_buffer"):
+                    self.sensor.ser.reset_input_buffer()
                 logger.info(f"Connected to physical C4002 sensor on {self.port} at {self.baudrate} baud.")
             except Exception as e:
                 logger.error(f"Failed to connect to C4002 sensor: {e}. Falling back to simulation mode.")
@@ -139,10 +143,13 @@ class C4002Sensor(BaseSensor):
         logger.info(f"Started C4002 1 Hz background sampling task (window={self.poll_interval}s).")
         while self._running:
             start_time = asyncio.get_event_loop().time()
+            sample = None
             try:
                 if self.simulation_mode:
                     sample = self._generate_simulated_sample()
                 else:
+                    # In hardware mode, read_packet_sync() blocks until the next packet arrives
+                    # from the sensor (1.0s pacing).
                     sample = await asyncio.to_thread(self._read_packet_sync)
 
                 if sample:
@@ -151,12 +158,26 @@ class C4002Sensor(BaseSensor):
             except Exception as e:
                 logger.error(f"Error in C4002 sampling loop: {e}")
 
-            elapsed = asyncio.get_event_loop().time() - start_time
-            sleep_time = max(0.05, self.sample_interval - elapsed)
-            try:
-                await asyncio.sleep(sleep_time)
-            except asyncio.CancelledError:
-                break
+            if self.simulation_mode:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                sleep_time = max(0.05, self.sample_interval - elapsed)
+                try:
+                    await asyncio.sleep(sleep_time)
+                except asyncio.CancelledError:
+                    break
+            else:
+                # In hardware mode, read_packet_sync() already paces the loop at the sensor's
+                # reporting interval (1.0s). Do not add a sleep after reading, which would cause
+                # packets to accumulate in the serial buffer and create lag.
+                if not sample:
+                    # Brief backoff if no sample was returned (e.g. read timeout/error)
+                    try:
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+                else:
+                    # Cooperative yield to allow other coroutines on the event loop to execute
+                    await asyncio.sleep(0)
 
     async def read(self) -> list:
         """
