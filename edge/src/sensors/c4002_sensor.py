@@ -42,6 +42,10 @@ class C4002Sensor(BaseSensor):
         self.motion_metric_id = metrics_cfg.get("motion", {}).get("metric_id")
         self.light_metric_id = metrics_cfg.get("light", {}).get("metric_id")
 
+        # LED configuration: False by default (dark/stealth mode). Set to True to enable.
+        # Can also be a dict: {"run": False, "out": True}
+        self.led_config = self.config.get("led", self.config.get("leds", False))
+
         self.sensor: Optional[Any] = None
         self._window_samples: List[Dict[str, Any]] = []
         self._lock = asyncio.Lock()
@@ -67,6 +71,21 @@ class C4002Sensor(BaseSensor):
                 if hasattr(self.sensor, "set_report_period"):
                     self.sensor.set_report_period(10)
                     await asyncio.sleep(0.1)
+
+                # Configure onboard LEDs (default: turned off / stealth mode)
+                if hasattr(self.sensor, "set_led"):
+                    if isinstance(self.led_config, dict):
+                        run_state = self.led_config.get("run", True)
+                        out_state = self.led_config.get("out", True)
+                        self.sensor.set_led(run_led=run_state, out_led=out_state)
+                        logger.info(f"C4002 onboard LEDs configured: RUN={run_state}, OUT={out_state}")
+                    elif self.led_config:
+                        self.sensor.set_led(run_led=True, out_led=True)
+                        logger.info("C4002 onboard LEDs turned ON.")
+                    else:
+                        self.sensor.turn_off_leds()
+                        logger.info("C4002 onboard LEDs turned OFF (default dark/stealth mode).")
+
                 # Flush any stale packets that were buffered before starting
                 if self.sensor.ser and hasattr(self.sensor.ser, "reset_input_buffer"):
                     self.sensor.ser.reset_input_buffer()
