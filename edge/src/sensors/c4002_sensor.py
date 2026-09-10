@@ -133,7 +133,7 @@ class C4002Sensor(BaseSensor):
                     else:
                         led_mode = self._parse_led_mode(self.led_config, default=LED_OFF)
                         if led_mode == LED_ON:
-                            self.sensor.set_led(run_led=LED_ON, out_led=LED_ON)
+                            self.sensor.set_led(run_led=True, out_led=True)
                             logger.info("C4002 onboard LEDs turned ON.")
                         elif led_mode == LED_KEEP:
                             logger.info("C4002 onboard LEDs preserved (hardware state unchanged).")
@@ -141,7 +141,7 @@ class C4002Sensor(BaseSensor):
                             if hasattr(self.sensor, "turn_off_leds"):
                                 self.sensor.turn_off_leds()
                             else:
-                                self.sensor.set_led(run_led=LED_OFF, out_led=LED_OFF)
+                                self.sensor.set_led(run_led=False, out_led=False)
                             logger.info("C4002 onboard LEDs turned OFF (default dark/stealth mode).")
                     await asyncio.sleep(0.05)
 

@@ -104,7 +104,7 @@ def test_setup_led_on_boolean(mock_driver_cls) -> None:
     sensor = C4002Sensor(device_id=1, config=config)
     run_async(sensor.setup())
 
-    mock_sensor.set_led.assert_called_once_with(run_led=LED_ON, out_led=LED_ON)
+    mock_sensor.set_led.assert_called_once_with(run_led=True, out_led=True)
     run_async(sensor.cleanup())
 
 
@@ -123,7 +123,7 @@ def test_setup_led_on_string(mock_driver_cls) -> None:
     sensor = C4002Sensor(device_id=1, config=config)
     run_async(sensor.setup())
 
-    mock_sensor.set_led.assert_called_once_with(run_led=LED_ON, out_led=LED_ON)
+    mock_sensor.set_led.assert_called_once_with(run_led=True, out_led=True)
     run_async(sensor.cleanup())
 
 

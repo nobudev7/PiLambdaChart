@@ -82,16 +82,25 @@ def main() -> None:
         sensor.connect()
 
         # Configure onboard LEDs (default: off / stealth mode)
-        if hasattr(sensor, "set_led"):
-            if args.led_on:
+        if args.led_on:
+            if hasattr(sensor, "set_led"):
                 sensor.set_led(run_led=True, out_led=True)
                 time.sleep(0.05)
             else:
-                if hasattr(sensor, "turn_off_leds"):
-                    sensor.turn_off_leds()
-                else:
-                    sensor.set_led(run_led=False, out_led=False)
+                print("Warning: The installed 'c4002' library does not support set_led().")
+                print("Update c4002-python: pip install --upgrade git+https://github.com/nobudev7/c4002-python.git\n")
+        else:
+            if hasattr(sensor, "turn_off_leds"):
+                sensor.turn_off_leds()
                 time.sleep(0.05)
+            elif hasattr(sensor, "set_led"):
+                sensor.set_led(run_led=False, out_led=False)
+                time.sleep(0.05)
+            else:
+                print("Warning: The installed 'c4002' library does not support turn_off_leds().")
+                lib_path = getattr(sys.modules.get("c4002"), "__file__", "unknown")
+                print(f"Library location: {lib_path}")
+                print("Update c4002-python: pip install --upgrade git+https://github.com/nobudev7/c4002-python.git\n")
 
         # Set hardware reporting interval to 1.0s (10 * 100ms)
         if hasattr(sensor, "set_report_period"):
