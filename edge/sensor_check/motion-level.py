@@ -1,30 +1,63 @@
-from gpiozero import MotionSensor
+#!/usr/bin/env python3
+"""
+Diagnostic check script for PIR motion sensor.
+Polls sensor state and counts HIGH detections in intervals.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
 import time
 
-# Adjust the pin number to match your wiring (e.g., GPIO 4)
-pir = MotionSensor(23)
 
-def count_motion():
-    print("Program started. Counting HIGH states in 10-second intervals...")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Count PIR motion sensor HIGH states in polling intervals."
+    )
+    parser.add_argument(
+        "--pin",
+        "-p",
+        type=int,
+        default=23,
+        help="BCM GPIO pin number connected to PIR OUT (default: 23)",
+    )
+    parser.add_argument(
+        "--interval",
+        "-i",
+        type=int,
+        default=10,
+        help="Polling window in seconds (default: 10)",
+    )
+    args = parser.parse_args()
+    pin_num = args.pin
 
-    while True:
-        high_count = 0
-        interval_start = time.time()
+    try:
+        from gpiozero import MotionSensor
+    except ImportError:
+        print("Error: 'gpiozero' library is not installed in this Python environment.")
+        print("Please install it: pip install gpiozero")
+        sys.exit(1)
 
-        # Run the polling loop for exactly 10 seconds
-        while time.time() - interval_start < 10:
-            if pir.value == 1:
-                high_count += 1
+    try:
+        pir = MotionSensor(pin_num)
+        print(f"Counting HIGH states on GPIO {pin_num} in {args.interval}-second intervals...")
+        print("Press Ctrl+C to stop.\n")
 
-            # Poll every half second (0.5 seconds)
-            time.sleep(0.5)
+        while True:
+            high_count = 0
+            interval_start = time.time()
 
-        # Generate a readable timestamp for the end of the interval
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] HIGH states detected in the last 10 seconds: {high_count}")
+            while time.time() - interval_start < args.interval:
+                if pir.value == 1:
+                    high_count += 1
+                time.sleep(0.5)
 
-# Run the counter loop
-try:
-    count_motion()
-except KeyboardInterrupt:
-    print("\nProgram stopped by user.")
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{timestamp}] HIGH states detected in the last {args.interval} seconds: {high_count}")
+    except KeyboardInterrupt:
+        print("\nProgram stopped by user.")
+
+
+if __name__ == "__main__":
+    main()

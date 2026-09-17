@@ -80,8 +80,9 @@ Follow these steps to recreate and deploy the complete PiLambdaChart platform fr
 
 ### Step 1: Set Up Raspberry Pi & Test Sensors Locally
 1. Wire physical sensors (DHT22, BH1750, PIR motion, HC-SR04, C4002 mmWave radar) to Raspberry Pi GPIO/I2C/UART pins.
+   - *Note: I2C is disabled by default on Raspberry Pi OS and **must be enabled** for the BH1750 light sensor (`sudo raspi-config nonint do_i2c 0`). See [`edge/I2C_SETUP.md`](edge/I2C_SETUP.md).*
 2. Run standalone test scripts under [`edge/sensor_check/`](edge/sensor_check/) to verify sensor hardware functionality locally.
-   - *Details: [`edge/README.md`](edge/README.md)*
+   - *Details: [`edge/README.md`](edge/README.md) and [`edge/I2C_SETUP.md`](edge/I2C_SETUP.md)*
 
 ### Step 2: Provision Base AWS Storage & Database (Terraform)
 1. Customize device and metric seed definitions in [`infrastructure/seeding.tf`](infrastructure/seeding.tf) (names, units, icons, `MinYRange`).

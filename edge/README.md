@@ -18,7 +18,8 @@ This folder contains the Python telemetry agent running on Raspberry Pi edge dev
 *   `requirements.txt`: Python dependencies for Raspberry Pi 3 / 4 (`RPi.GPIO`, `pyserial`).
 *   `requirements-lgpio.txt`: Python dependencies for Raspberry Pi 5 (`lgpio`).
 *   `pilambdachart-agent.service`: `systemd` service unit file for automated background execution on boot.
-*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections (`dht.py`, `bh1750.py`, `motion.py`, `c4002-aggregator.py`).
+*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections (`dht.py`, `bh1750.py`, `motion.py`, `motion-count.py`, `motion-level.py`, `c4002-aggregator.py`, `c4002-calibrator.py`).
+*   `I2C_SETUP.md`: Detailed hardware wiring, configuration, and verification guide for the I2C interface (BH1750 sensor).
 
 ---
 
@@ -156,10 +157,13 @@ Standalone diagnostic scripts are available in `sensor_check/` to test sensors a
 
 | Script | Target Sensor | Notes / Usage |
 | :--- | :--- | :--- |
-| `sensor_check/dht.py` | DHT22 | Tests pin read (default: GPIO 24) |
-| `sensor_check/bh1750.py` | BH1750 | Ambient light over I2C |
-| `sensor_check/motion.py` | PIR Motion | Listens for GPIO motion interrupts (GPIO 23) |
+| `sensor_check/dht.py` | DHT11 / DHT22 | Temperature & humidity (default: GPIO 24; supports `--pin`, `--type`) |
+| `sensor_check/bh1750.py` | BH1750 | Ambient light over I2C (see [`I2C_SETUP.md`](I2C_SETUP.md)) |
+| `sensor_check/motion.py` | PIR Motion | Real-time motion detection (default: GPIO 23; supports `--pin`) |
+| `sensor_check/motion-count.py` | PIR Motion | Counts triggers in windows (default: GPIO 23; supports `--pin`, `--interval`) |
+| `sensor_check/motion-level.py` | PIR Motion | Counts HIGH states in windows (default: GPIO 23; supports `--pin`, `--interval`) |
 | `sensor_check/c4002-aggregator.py` | C4002 mmWave Radar | 1 Hz UART sampling with windowed aggregations |
+| `sensor_check/c4002-calibrator.py` | C4002 mmWave Radar | Automated environmental background noise calibration |
 
 ### C4002 mmWave Radar Diagnostic (`c4002-aggregator.py`)
 
@@ -173,6 +177,26 @@ python sensor_check/c4002-aggregator.py --interval 10 --led-on
 # Explicitly ensure onboard LEDs are turned OFF (dark/stealth mode)
 python sensor_check/c4002-aggregator.py --led-off
 ```
+
+### C4002 Environmental Calibration (`c4002-calibrator.py`)
+
+```bash
+# Run automated background noise calibration (10s exit delay + 30s measurement)
+python sensor_check/c4002-calibrator.py
+
+# Custom delay and duration (minimum duration is 15s)
+python sensor_check/c4002-calibrator.py --delay 15 --duration 45
+```
+
+### BH1750 Ambient Light Diagnostic (`bh1750.py`)
+
+```bash
+# Read light intensity in Lux continuously
+python sensor_check/bh1750.py
+```
+
+> [!IMPORTANT]
+> The BH1750 sensor requires the I2C interface to be enabled on your Raspberry Pi. For detailed setup, wiring, and verification instructions, see [`I2C_SETUP.md`](I2C_SETUP.md).
 
 ---
 
@@ -202,13 +226,17 @@ python sensor_check/c4002-aggregator.py --led-off
    | **Pi 5** | Debian Bookworm | `lgpio` | `pip install -r requirements-lgpio.txt` |
 
 
-4. **Configure production sensors**:
+4. **Enable Hardware Interfaces**:
+   - **I2C (BH1750 Ambient Light)**: I2C must be enabled on your Raspberry Pi. See [`I2C_SETUP.md`](I2C_SETUP.md) for enabling commands, pinouts, and verification.
+   - **UART Serial (C4002 mmWave Radar)**: Ensure `/dev/serial0` is accessible.
+
+5. **Configure production sensors**:
    ```bash
    cp config.yaml.example config.yaml
    ```
    Edit `config.yaml` to set `simulation: false` and list attached sensors.
 
-5. **Configure AWS Credentials**: Set up `~/.aws/credentials` or environment variables.
+6. **Configure AWS Credentials**: Set up `~/.aws/credentials` or environment variables.
 
 ---
 

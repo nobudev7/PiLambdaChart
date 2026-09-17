@@ -181,6 +181,24 @@ def test_aggregator_arg_parser() -> None:
     assert "not allowed with argument" in res.stderr
 
 
+def test_calibrator_arg_parser() -> None:
+    import subprocess
+
+    cmd_help = [sys.executable, "edge/sensor_check/c4002-calibrator.py", "--help"]
+    res = subprocess.run(cmd_help, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "--port" in res.stdout
+    assert "--baudrate" in res.stdout
+    assert "--delay" in res.stdout
+    assert "--duration" in res.stdout
+
+    # Test invalid duration (< 15 seconds)
+    cmd_invalid = [sys.executable, "edge/sensor_check/c4002-calibrator.py", "--duration", "5"]
+    res = subprocess.run(cmd_invalid, capture_output=True, text=True)
+    assert res.returncode != 0
+    assert "at least 15" in res.stderr
+
+
 if __name__ == "__main__":
     test_parse_led_mode()
     test_format_led_mode()
@@ -190,4 +208,5 @@ if __name__ == "__main__":
     test_setup_led_off_string()
     test_setup_led_dict()
     test_aggregator_arg_parser()
+    test_calibrator_arg_parser()
     print("All C4002 tests passed successfully!")
