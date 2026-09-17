@@ -6,7 +6,7 @@ boto3>=1.26.0
 adafruit-circuitpython-dht>=3.7.0
 adafruit-circuitpython-bh1750>=1.0.0
 pyserial>=3.5
-# c4002-python (Install from GitHub: pip install git+https://github.com/nobudev7/c4002-python.git)
+c4002-python>=0.2.0
 
 # GPIO libraries
 # gpiozero uses these as pin factory backends in priority order: lgpio → RPi.GPIO

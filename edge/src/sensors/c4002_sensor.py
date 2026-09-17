@@ -32,7 +32,10 @@ except ImportError:
         LED_ON = 1
         LED_OFF = 0
         LED_KEEP = 255
-        logger.warning("c4002 library not found. C4002 sensor will run in simulation mode.")
+        logger.warning(
+            "c4002 library not found. Install via 'pip install c4002-python'. "
+            "C4002 sensor will run in simulation mode."
+        )
 
 
 class C4002Sensor(BaseSensor):

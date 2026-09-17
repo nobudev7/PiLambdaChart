@@ -17,7 +17,7 @@ try:
     from c4002 import C4002Sensor
 except ImportError:
     print("Error: 'c4002' library is not installed in this Python environment.")
-    print("Please install it from https://github.com/nobudev7/c4002-python")
+    print("Please install it: pip install c4002-python")
     sys.exit(1)
 
 

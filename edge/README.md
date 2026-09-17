@@ -178,6 +178,28 @@ python sensor_check/c4002-aggregator.py --interval 10 --led-on
 python sensor_check/c4002-aggregator.py --led-off
 ```
 
+> [!IMPORTANT]
+> **UART Serial Interface Configuration**:
+> The C4002 mmWave radar communicates via `/dev/serial0` (GPIO 14 TX, GPIO 15 RX). The UART hardware port must be **enabled**, and the Linux **serial login shell must be disabled** so the OS does not intercept or transmit console messages over the sensor's UART pins.
+> 
+> **Configure via `raspi-config` CLI**:
+> ```bash
+> # 1. Enable serial hardware port
+> sudo raspi-config nonint do_serial_hw 0
+> 
+> # 2. Disable serial login console / shell
+> sudo raspi-config nonint do_serial_cons 1
+> 
+> # 3. Reboot to apply kernel changes
+> sudo reboot
+> ```
+> *Interactive alternative:* Run `sudo raspi-config` $\rightarrow$ **Interface Options** $\rightarrow$ **Serial Port** $\rightarrow$ Login shell: **\<No\>** $\rightarrow$ Hardware enabled: **\<Yes\>**, then reboot.
+> 
+> Library dependency:
+> ```bash
+> pip install c4002-python
+> ```
+
 ### C4002 Environmental Calibration (`c4002-calibrator.py`)
 
 ```bash
@@ -228,7 +250,13 @@ python sensor_check/bh1750.py
 
 4. **Enable Hardware Interfaces**:
    - **I2C (BH1750 Ambient Light)**: I2C must be enabled on your Raspberry Pi. See [`I2C_SETUP.md`](I2C_SETUP.md) for enabling commands, pinouts, and verification.
-   - **UART Serial (C4002 mmWave Radar)**: Ensure `/dev/serial0` is accessible.
+   - **UART Serial (C4002 mmWave Radar)**: Enable the serial port hardware interface and disable the serial login shell:
+     ```bash
+     sudo raspi-config nonint do_serial_hw 0
+     sudo raspi-config nonint do_serial_cons 1
+     sudo reboot
+     ```
+     *(In interactive `raspi-config`: **Interface Options** $\rightarrow$ **Serial Port** $\rightarrow$ Login shell: **No**, Hardware enabled: **Yes**).*
 
 5. **Configure production sensors**:
    ```bash

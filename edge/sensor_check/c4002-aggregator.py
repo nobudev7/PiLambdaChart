@@ -17,7 +17,7 @@ try:
     from c4002 import C4002Sensor
 except ImportError:
     print("Error: 'c4002' library is not installed in this Python environment.")
-    print("Please install it from https://github.com/nobudev7/c4002-python")
+    print("Please install it: pip install c4002-python")
     sys.exit(1)
 
 
@@ -88,7 +88,7 @@ def main() -> None:
                 time.sleep(0.05)
             else:
                 print("Warning: The installed 'c4002' library does not support set_led().")
-                print("Update c4002-python: pip install --upgrade git+https://github.com/nobudev7/c4002-python.git\n")
+                print("Update c4002-python: pip install --upgrade c4002-python\n")
         else:
             if hasattr(sensor, "turn_off_leds"):
                 sensor.turn_off_leds()
@@ -100,7 +100,7 @@ def main() -> None:
                 print("Warning: The installed 'c4002' library does not support turn_off_leds().")
                 lib_path = getattr(sys.modules.get("c4002"), "__file__", "unknown")
                 print(f"Library location: {lib_path}")
-                print("Update c4002-python: pip install --upgrade git+https://github.com/nobudev7/c4002-python.git\n")
+                print("Update c4002-python: pip install --upgrade c4002-python\n")
 
         # Set hardware reporting interval to 1.0s (10 * 100ms)
         if hasattr(sensor, "set_report_period"):
