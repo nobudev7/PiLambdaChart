@@ -296,6 +296,20 @@ function parseUrlParams() {
   };
 }
 
+/** Sync current device + year/month selection into the URL query string. */
+function updateUrlState() {
+  const params = new URLSearchParams();
+  if (state.deviceId) params.set('device', state.deviceId);
+  if (state.selectedYearMo) {
+    const [yr, mo] = state.selectedYearMo.split('/');
+    params.set('year', yr);
+    params.set('month', mo);
+  }
+  const qs = params.toString();
+  const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+  history.replaceState(null, '', newUrl);
+}
+
 /* ════════════════════════════════════════════════════════════════
    AUTO-SELECT: from URL params or first device + most recent month
 ════════════════════════════════════════════════════════════════ */
@@ -326,6 +340,9 @@ function autoSelectFirst() {
 ════════════════════════════════════════════════════════════════ */
 function selectDevice(devId, initial = false) {
   state.deviceId = devId;
+
+  // Sync selection into the URL
+  updateUrlState();
 
   // Update active state
   document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
@@ -377,6 +394,9 @@ function selectDevice(devId, initial = false) {
 function selectYearMonth(ym) {
   state.selectedYearMo = ym;
   const [yr, mo] = ym.split('/');
+
+  // Sync selection into the URL
+  updateUrlState();
 
   // Update active state in month list
   document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
@@ -733,7 +753,8 @@ function setupChartModal() {
 
   if (!modal) return;
 
-  // Click anywhere on the modal or enlarged chart to collapse back to normal size
+  // Click on the modal backdrop (outside chart) to collapse back to normal size
+  // Note: click on the chart image wrapper is stopped via stopPropagation in openChartModal
   modal.addEventListener('click', closeChartModal);
   if (closeBtn) {
     closeBtn.addEventListener('click', e => {
@@ -873,8 +894,22 @@ function openChartModal(imgSrc, jsonUrl, titleText, meta) {
 
       wrapper.onmousemove = handleModalMove;
       wrapper.onmouseleave = handleModalLeave;
+
+      // Touch support for mobile crosshairs (touch-and-drag to explore)
+      const handleModalTouch = e => {
+        e.preventDefault(); // prevent scroll & click-through
+        const touch = e.touches[0];
+        if (!touch) return;
+        handleModalMove({ clientX: touch.clientX, clientY: touch.clientY, stopPropagation: () => {} });
+      };
+      wrapper.ontouchstart = handleModalTouch;
+      wrapper.ontouchmove = handleModalTouch;
+      // No touchend handler — crosshair stays visible at last position (sticky)
     });
   }
+
+  // Prevent tapping the chart image from closing the modal (allow crosshair interaction)
+  wrapper.addEventListener('click', e => e.stopPropagation());
 }
 
 function closeChartModal() {

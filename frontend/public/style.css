@@ -565,6 +565,13 @@ body.sidebar-collapsed .main-wrapper { margin-left: var(--sidebar-collapsed); }
   color: var(--text-muted);
 }
 
+.chart-modal-hint-mobile { display: none; }
+
+@media (hover: none) and (pointer: coarse) {
+  .chart-modal-hint-desktop { display: none; }
+  .chart-modal-hint-mobile  { display: inline; }
+}
+
 .tile-header {
   display: flex;
   align-items: center;
