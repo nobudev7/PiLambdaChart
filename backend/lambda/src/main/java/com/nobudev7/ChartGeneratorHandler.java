@@ -88,6 +88,13 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
             
             if (input.containsKey("timezone")) {
                 zoneId = ZoneId.of(String.valueOf(input.get("timezone")));
+            } else {
+                Map<String, String> devMeta = fetchMetadata("DEVICE", deviceId);
+                if (devMeta.containsKey("Timezone")) {
+                    try {
+                        zoneId = ZoneId.of(devMeta.get("Timezone"));
+                    } catch (Exception ignored) {}
+                }
             }
 
             targetDate = LocalDate.now(zoneId);
@@ -445,6 +452,11 @@ public class ChartGeneratorHandler implements RequestHandler<Map<String, Object>
                     if ("METRIC".equalsIgnoreCase(entityType)) {
                         metricsMap.put(id, m);
                     } else if ("DEVICE".equalsIgnoreCase(entityType)) {
+                        if (item.containsKey("Timezone")) {
+                            m.put("timezone", item.get("Timezone").s());
+                        } else {
+                            m.put("timezone", DEFAULT_ZONE_ID.getId());
+                        }
                         devicesMap.put(id, m);
                     }
                 }

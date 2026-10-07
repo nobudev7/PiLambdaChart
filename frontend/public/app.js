@@ -33,6 +33,51 @@ const DATA_BASE_URL = (() => {
   return 'output';
 })();
 
+const DEFAULT_TIMEZONE = (() => {
+  if (typeof window.PILAMBDACHART_DEFAULT_TIMEZONE === 'string') return window.PILAMBDACHART_DEFAULT_TIMEZONE;
+  const meta = document.querySelector('meta[name="default-timezone"]');
+  if (meta && meta.content) return meta.content;
+  return 'America/New_York';
+})();
+
+/** Returns the IANA timezone configured for a specific device. */
+function getDeviceTimezone(devId) {
+  return (DEVICE_META[devId] && DEVICE_META[devId].timezone) || DEFAULT_TIMEZONE;
+}
+
+/** Formats a Date into YYYY-MM-DD within a target IANA timezone using Intl. */
+function getDateStrInTimezone(date, timeZone) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || DEFAULT_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${d}`;
+  } catch (err) {
+    return toLocalDateStr(date);
+  }
+}
+
+/** Computes todayStr and yesterdayStr relative to the device's timezone. */
+function getDeviceTodayYesterday(devId) {
+  const tz = getDeviceTimezone(devId);
+  const now = new Date();
+  const todayStr = getDateStrInTimezone(now, tz);
+
+  // Subtracting 1 UTC day from today's calendar date is immune to DST hour shifts
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const prevDate = new Date(Date.UTC(y, m - 1, d - 1));
+  const yesterdayStr = prevDate.toISOString().slice(0, 10);
+
+  return { todayStr, yesterdayStr, timeZone: tz };
+}
+
 /* ── Metric metadata (populated dynamically from DynamoDB metadata) ── */
 const METRIC_META = {};
 
@@ -91,7 +136,8 @@ async function init() {
         Object.entries(metaData.devices).forEach(([id, d]) => {
           DEVICE_META[id] = {
             name: d.name || '',
-            location: d.location || ''
+            location: d.location || '',
+            timezone: d.timezone || DEFAULT_TIMEZONE
           };
         });
       }
@@ -171,10 +217,13 @@ function calculateDeviceStatus(devId) {
     }
   }
 
-  const dt = new Date(latestMs);
   const pad = n => String(n).padStart(2, '0');
-  const formattedDate = `${dt.getFullYear()}/${pad(dt.getMonth() + 1)}/${pad(dt.getDate())}`;
-  const formattedTime = timeStr ? timeStr : (dt.getHours() === 0 && dt.getMinutes() === 0 ? '' : `${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`);
+  const formattedDate = `${maxDateStr.substring(0, 4)}/${maxDateStr.substring(4, 6)}/${maxDateStr.substring(6, 8)}`;
+  let formattedTime = timeStr;
+  if (!formattedTime) {
+    const dt = new Date(latestMs);
+    formattedTime = (dt.getHours() === 0 && dt.getMinutes() === 0 ? '' : `${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`);
+  }
   const lastUpdatedStr = formattedTime ? `${formattedDate} ${formattedTime}` : formattedDate;
 
   const diffMinutes = (Date.now() - latestMs) / (1000 * 60);
@@ -201,8 +250,11 @@ function getDeviceDisplayName(devId) {
 function updateSidebarFooter(devId) {
   if (!els.badgeDot || !els.sidebarFooterText) return;
   const status = calculateDeviceStatus(devId);
+  const tz = getDeviceTimezone(devId);
   els.badgeDot.className = `badge-dot ${status.stateClass}`;
-  els.sidebarFooterText.textContent = `${getDeviceDisplayName(devId)} — ${status.lastUpdatedStr}`;
+  const fullText = `${getDeviceDisplayName(devId)} — ${status.lastUpdatedStr} (${tz})`;
+  els.sidebarFooterText.textContent = fullText;
+  els.sidebarFooterText.title = fullText;
 }
 
 function updateDeviceListItem(devId) {
@@ -433,15 +485,14 @@ function renderMonthView(year, month) {
 
   els.monthView.innerHTML = '';
 
-  // Today string for "Today" / "Yesterday" tags
-  const todayStr = toLocalDateStr(new Date());
-  const yesterdayStr = toLocalDateStr(new Date(Date.now() - 86400000));
+  // Calculate Today / Yesterday strings relative to device timezone
+  const { todayStr, yesterdayStr, timeZone } = getDeviceTodayYesterday(deviceId);
 
   dates.forEach(dateStr => {
     const metricIds = getMetricsForDate(deviceId, dateStr, year, month);
     if (metricIds.length === 0) return;
 
-    const card = buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr);
+    const card = buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr, timeZone);
     els.monthView.appendChild(card);
   });
 
@@ -469,8 +520,14 @@ async function fetchChartJson(url) {
     const data = await resp.json();
     jsonCache.set(url, data);
     if (data && data.deviceId) {
+      if (data.timezone && DEVICE_META[data.deviceId]) {
+        DEVICE_META[data.deviceId].timezone = data.timezone;
+      }
       updateDeviceStatusUI(data.deviceId);
     } else if (state.deviceId) {
+      if (data.timezone && DEVICE_META[state.deviceId]) {
+        DEVICE_META[state.deviceId].timezone = data.timezone;
+      }
       updateDeviceStatusUI(state.deviceId);
     }
 
@@ -491,7 +548,7 @@ async function fetchChartJson(url) {
 }
 
 /* ── Build one day card ─────────────────────────────────────────── */
-function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
+function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr, timeZone) {
   const card = document.createElement('div');
   card.className = 'day-card';
   card.dataset.date = dateStr;
@@ -504,9 +561,9 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
   dateLabel.className = 'day-date';
 
   const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const dayOfWeek = dateObj.getDay(); // 0=Sun, 6=Sat
-  const dowText = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  const dayOfWeek = dateObj.getUTCDay(); // 0=Sun, 6=Sat
+  const dowText = dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
   const dowClass = dayOfWeek === 0 ? 'day-dow-sun' : dayOfWeek === 6 ? 'day-dow-sat' : 'day-dow-weekday';
 
   dateLabel.innerHTML =
@@ -519,11 +576,13 @@ function buildDayCard(deviceId, dateStr, metricIds, todayStr, yesterdayStr) {
     const tag = document.createElement('span');
     tag.className = 'day-tag';
     tag.textContent = 'Today';
+    tag.title = timeZone ? `Today (${timeZone})` : 'Today';
     header.appendChild(tag);
   } else if (dateStr === yesterdayStr) {
     const tag = document.createElement('span');
     tag.className = 'day-tag';
     tag.textContent = 'Yesterday';
+    tag.title = timeZone ? `Yesterday (${timeZone})` : 'Yesterday';
     header.appendChild(tag);
   }
 
@@ -1049,8 +1108,8 @@ function closeMobileSidebar() {
 ════════════════════════════════════════════════════════════════ */
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US',
-    { year: 'numeric', month: 'long', day: 'numeric' });
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US',
+    { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }
 
 function formatYearMonth(year, month) {

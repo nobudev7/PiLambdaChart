@@ -527,6 +527,11 @@ public class ChartGeneratorCLI {
                     if ("METRIC".equalsIgnoreCase(entityType)) {
                         metricsMap.put(id, m);
                     } else if ("DEVICE".equalsIgnoreCase(entityType)) {
+                        if (item.containsKey("Timezone")) {
+                            m.put("timezone", item.get("Timezone").s());
+                        } else {
+                            m.put("timezone", "America/New_York");
+                        }
                         devicesMap.put(id, m);
                     }
                 }

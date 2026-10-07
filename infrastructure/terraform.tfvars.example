@@ -46,8 +46,8 @@ lambda_trigger_timezone = "America/New_York"  # Target timezone for day calculat
 # These will be seeded into the DynamoDB IoT_Metadata table.
 
 seeded_devices = {
-  "1" = { name = "Sump Pump Monitor", location = "Basement" }
-  "2" = { name = "Ambient Monitor",   location = "Bedroom" }
+  "1" = { name = "Sump Pump Monitor", location = "Basement", timezone = "America/New_York" }
+  "2" = { name = "Ambient Monitor",   location = "Bedroom",  timezone = "America/New_York" }
 }
 
 seeded_metrics = {
