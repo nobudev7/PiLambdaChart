@@ -14,12 +14,14 @@ resource "aws_dynamodb_table_item" "devices" {
   hash_key   = aws_dynamodb_table.iot_metadata.hash_key
   range_key  = aws_dynamodb_table.iot_metadata.range_key
 
-  item = jsonencode({
+  item = jsonencode(merge({
     EntityType = { S = "DEVICE" }
     ID         = { N = each.key }
     Name       = { S = each.value.name }
     Location   = { S = each.value.location }
-  })
+  }, each.value.timezone != null ? {
+    Timezone   = { S = each.value.timezone }
+  } : {}))
 }
 
 # Metrics

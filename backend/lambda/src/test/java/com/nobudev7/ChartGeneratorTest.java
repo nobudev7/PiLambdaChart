@@ -95,6 +95,7 @@ public class ChartGeneratorTest {
         assertNotNull(result.getJsonMetadata(), "JSON metadata should not be null");
         assertTrue(result.getJsonMetadata().contains("plotArea"), "Metadata JSON should contain plotArea");
         assertTrue(result.getJsonMetadata().contains("points"), "Metadata JSON should contain points");
+        assertTrue(result.getJsonMetadata().contains("\"timezone\": \"America/New_York\""), "Metadata JSON should contain timezone");
     }
 
     @Test

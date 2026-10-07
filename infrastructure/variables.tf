@@ -126,6 +126,7 @@ variable "seeded_devices" {
   type = map(object({
     name     = string
     location = string
+    timezone = optional(string, "America/New_York")
   }))
   default = {}
 }

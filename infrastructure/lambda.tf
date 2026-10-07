@@ -63,7 +63,7 @@ resource "aws_cloudwatch_event_target" "trigger_lambda_target" {
     "device_id" : tonumber(each.key),
     "metrics"   : var.lambda_trigger_metrics,
     "target"    : "today",
-    "timezone"  : var.lambda_trigger_timezone
+    "timezone"  : try(var.seeded_devices[each.key].timezone, var.lambda_trigger_timezone)
   })
 }
 

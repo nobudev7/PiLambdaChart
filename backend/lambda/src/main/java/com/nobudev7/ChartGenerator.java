@@ -274,6 +274,9 @@ public class ChartGenerator {
         metaMap.put("metricName", metricName != null ? metricName : "Metric " + metricId);
         metaMap.put("unit", unit != null ? unit : "");
         metaMap.put("icon", (icon != null && !icon.isEmpty()) ? icon : "📊");
+        if (data != null && !data.isEmpty() && data.get(0).getTime() != null && data.get(0).getTime().getZone() != null) {
+            metaMap.put("timezone", data.get(0).getTime().getZone().getId());
+        }
 
         Map<String, Object> plotArea = new HashMap<>();
         plotArea.put("x", dataArea.getX());
