@@ -101,3 +101,16 @@ sensors:
       light:
         metric_id: 9        # Average ambient light (Lux)
 
+  # Example 6: Sensirion SHT40 I2C Temperature & Humidity Sensor
+  # Reuses the Temperature (1) and Humidity (2) metrics (typically used instead of DHT22)
+  - type: "sht40"
+    address: 0x44                 # Default I2C address (0x45 on SHT40-BD1B variants)
+    mode: "NOHEAT_HIGHPRECISION"  # Optional: NOHEAT_HIGHPRECISION, NOHEAT_MEDPRECISION, NOHEAT_LOWPRECISION, etc.
+    poll_interval: 10
+    simulation: true              # Set to false when running on a physical Pi with actual sensor
+    metrics:
+      temperature:
+        metric_id: 1
+      humidity:
+        metric_id: 2
+

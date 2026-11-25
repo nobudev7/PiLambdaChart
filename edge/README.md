@@ -9,6 +9,7 @@ This folder contains the Python telemetry agent running on Raspberry Pi edge dev
 *   `src/sensors/`: Decoupled sensor driver plugins:
     *   `base_sensor.py`: Abstract Base Class (`BaseSensor`) for all sensor plugins.
     *   `dht_sensor.py`: Driver for DHT11 and DHT22 Temperature/Humidity sensors.
+    *   `sht40_sensor.py`: Driver for Sensirion SHT40 I2C Temperature/Humidity sensors.
     *   `bh1750_sensor.py`: Driver for BH1750 ambient light lux sensors.
     *   `pir_motion.py`: Driver for PIR Motion sensors, counting motion events over interval windows.
     *   `ultrasonic.py`: Driver for HC-SR04 ultrasonic sensors measuring water/fluid levels.
@@ -18,8 +19,8 @@ This folder contains the Python telemetry agent running on Raspberry Pi edge dev
 *   `requirements.txt`: Python dependencies for Raspberry Pi 3 / 4 (`RPi.GPIO`, `pyserial`).
 *   `requirements-lgpio.txt`: Python dependencies for Raspberry Pi 5 (`lgpio`).
 *   `pilambdachart-agent.service`: `systemd` service unit file for automated background execution on boot.
-*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections (`dht.py`, `bh1750.py`, `motion.py`, `motion-count.py`, `motion-level.py`, `c4002-aggregator.py`, `c4002-calibrator.py`).
-*   `I2C_SETUP.md`: Detailed hardware wiring, configuration, and verification guide for the I2C interface (BH1750 sensor).
+*   `sensor_check/`: Standalone Python scripts to test sensor hardware functionality and pin connections (`dht.py`, `sht40.py`, `bh1750.py`, `motion.py`, `motion-count.py`, `motion-level.py`, `c4002-aggregator.py`, `c4002-calibrator.py`).
+*   `I2C_SETUP.md`: Detailed hardware wiring, configuration, and verification guide for the I2C interface (BH1750 & SHT40 sensors).
 
 ---
 
@@ -33,6 +34,7 @@ The PiLambdaChart Edge Client is built on a modular, decoupled, and event-driven
 
 2. **Asynchronous Sensor Driver Plugins**:
    * **DHT Sensor** (`dht_sensor.py`): Gathers temperature and humidity. Uses `asyncio.to_thread` to execute blocking sensor library calls without stalling the main event loop.
+   * **SHT40 Sensor** (`sht40_sensor.py`): Gathers temperature and humidity over the I2C bus using `adafruit-circuitpython-sht4x` and `asyncio.to_thread`.
    * **BH1750 Sensor** (`bh1750_sensor.py`): Collects ambient light lux readings via I2C bus.
    * **PIR Motion Sensor** (`pir_motion.py`): Hooks into hardware GPIO interrupts to accumulate motion trigger counts over interval windows.
    * **Ultrasonic Sensor** (`ultrasonic.py`): Measures fluid/water levels.
@@ -158,6 +160,7 @@ Standalone diagnostic scripts are available in `sensor_check/` to test sensors a
 | Script | Target Sensor | Notes / Usage |
 | :--- | :--- | :--- |
 | `sensor_check/dht.py` | DHT11 / DHT22 | Temperature & humidity (default: GPIO 24; supports `--pin`, `--type`) |
+| `sensor_check/sht40.py` | SHT40 | Temperature & humidity over I2C (default: `0x44`; supports `--address`, `--interval`, `--mode`; see [`I2C_SETUP.md`](I2C_SETUP.md)) |
 | `sensor_check/bh1750.py` | BH1750 | Ambient light over I2C (see [`I2C_SETUP.md`](I2C_SETUP.md)) |
 | `sensor_check/motion.py` | PIR Motion | Real-time motion detection (default: GPIO 23; supports `--pin`) |
 | `sensor_check/motion-count.py` | PIR Motion | Counts triggers in windows (default: GPIO 23; supports `--pin`, `--interval`) |
@@ -217,8 +220,18 @@ python sensor_check/c4002-calibrator.py --delay 15 --duration 45
 python sensor_check/bh1750.py
 ```
 
+### SHT40 Temperature & Humidity Diagnostic (`sht40.py`)
+
+```bash
+# Read temperature and relative humidity continuously (default address 0x44, 2.0s interval)
+python sensor_check/sht40.py
+
+# Custom I2C address, polling interval, and measurement mode
+python sensor_check/sht40.py --address 0x45 --interval 5 --mode NOHEAT_MEDPRECISION
+```
+
 > [!IMPORTANT]
-> The BH1750 sensor requires the I2C interface to be enabled on your Raspberry Pi. For detailed setup, wiring, and verification instructions, see [`I2C_SETUP.md`](I2C_SETUP.md).
+> The BH1750 and SHT40 sensors require the I2C interface to be enabled on your Raspberry Pi. For detailed setup, wiring, and verification instructions, see [`I2C_SETUP.md`](I2C_SETUP.md).
 
 ---
 
@@ -249,7 +262,7 @@ python sensor_check/bh1750.py
 
 
 4. **Enable Hardware Interfaces**:
-   - **I2C (BH1750 Ambient Light)**: I2C must be enabled on your Raspberry Pi. See [`I2C_SETUP.md`](I2C_SETUP.md) for enabling commands, pinouts, and verification.
+   - **I2C (BH1750 Ambient Light & SHT40 Temp/Humidity)**: I2C must be enabled on your Raspberry Pi. See [`I2C_SETUP.md`](I2C_SETUP.md) for enabling commands, pinouts, and verification.
    - **UART Serial (C4002 mmWave Radar)**: Enable the serial port hardware interface and disable the serial login shell:
      ```bash
      sudo raspi-config nonint do_serial_hw 0
