@@ -2,13 +2,15 @@
 
 This guide provides detailed instructions for enabling, configuring, and verifying the **I2C (Inter-Integrated Circuit)** interface on Raspberry Pi edge devices running Raspberry Pi OS.
 
-In the PiLambdaChart architecture, the **BH1750 ambient light sensor** communicates over the I2C bus. Because I2C is disabled by default on Raspberry Pi OS, it must be enabled before running the diagnostic check (`sensor_check/bh1750.py`) or starting the edge agent (`agent.py`).
+In the PiLambdaChart architecture, the **BH1750 ambient light sensor** and **SHT40 temperature & humidity sensor** communicate over the I2C bus. Because I2C is disabled by default on Raspberry Pi OS, it must be enabled before running the diagnostic checks (`sensor_check/bh1750.py`, `sensor_check/sht40.py`) or starting the edge agent (`agent.py`).
 
 ---
 
-## Hardware Pinout for BH1750
+## Hardware Pinout for BH1750 & SHT40
 
-The Raspberry Pi exposes the primary I2C bus (**I2C-1**) on the first few pins of its 40-pin GPIO header:
+The Raspberry Pi exposes the primary I2C bus (**I2C-1**) on the first few pins of its 40-pin GPIO header. BH1750 (`0x23` / `0x5c`) and SHT40 (`0x44` / `0x45`) can share the same SDA/SCL lines without address conflicts:
+
+### BH1750 Pinout
 
 | BH1750 Pin | Raspberry Pi Pin | Pin Function | Header Position |
 | :--- | :--- | :--- | :--- |
@@ -18,8 +20,17 @@ The Raspberry Pi exposes the primary I2C bus (**I2C-1**) on the first few pins o
 | **SDA** | Pin 3 | GPIO 2 (I2C1 SDA) | Data Line |
 | **ADDR** | *(Floating or GND)* | Address Select | GND = `0x23` / 3.3V = `0x5c` |
 
+### SHT40 Pinout
+
+| SHT40 Pin | Raspberry Pi Pin | Pin Function | Header Position |
+| :--- | :--- | :--- | :--- |
+| **VIN / VCC** | Pin 1 (or Pin 17) | 3.3V Power | Top Left / 3.3V Rail |
+| **GND** | Pin 6 or 9 | Ground | Header Ground |
+| **SCL** | Pin 5 | GPIO 3 (I2C1 SCL) | Clock Line (shared with BH1750) |
+| **SDA** | Pin 3 | GPIO 2 (I2C1 SDA) | Data Line (shared with BH1750) |
+
 > [!IMPORTANT]
-> Always power the BH1750 module from the **3.3V** pin (Pin 1), not 5V. Raspberry Pi GPIO pins are 3.3V logic; supplying 5V to the I2C lines can damage the Raspberry Pi SoC.
+> Always power the BH1750 and SHT40 modules from a **3.3V** pin (Pin 1 or Pin 17), not 5V. Raspberry Pi GPIO pins are 3.3V logic; supplying 5V to the I2C lines can damage the Raspberry Pi SoC.
 
 ---
 
@@ -114,34 +125,45 @@ Scan the I2C bus (`bus 1` on modern Raspberry Pis):
 sudo i2cdetect -y 1
 ```
 
-If the BH1750 sensor is wired correctly, its 7-bit hex address will appear in the grid:
-- **`0x23`**: Default address when the `ADDR` pin is connected to Ground or left floating.
-- **`0x5c`**: Alternative address when the `ADDR` pin is pulled high to 3.3V.
+If your I2C sensors are wired correctly, their 7-bit hex addresses will appear in the grid:
+- **BH1750**:
+  - **`0x23`**: Default address when the `ADDR` pin is connected to Ground or left floating.
+  - **`0x5c`**: Alternative address when the `ADDR` pin is pulled high to 3.3V.
+- **SHT40**:
+  - **`0x44`**: Default address on standard SHT40-AD1B breakout boards.
+  - **`0x45`**: Alternative address on SHT40-BD1B variants.
 
-Example output:
+Example output (showing BH1750 at `0x23` and SHT40 at `0x44`):
 ```text
      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 00:                         -- -- -- -- -- -- -- -- 
 10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 20: -- -- -- 23 -- -- -- -- -- -- -- -- -- -- -- -- 
 30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
-40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+40: -- -- -- -- 44 -- -- -- -- -- -- -- -- -- -- -- 
 50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 70: -- -- -- -- -- -- -- --                         
 ```
 
-### Step 4: Run the Diagnostic Script
-Run the standalone hardware test script located in `edge/sensor_check/`:
+### Step 4: Run the Diagnostic Scripts
+Run the standalone hardware test scripts located in `edge/sensor_check/`:
 
 ```bash
+# BH1750 ambient light
 python sensor_check/bh1750.py
+
+# SHT40 temperature & humidity
+python sensor_check/sht40.py
 ```
 Expected output:
 ```text
+# bh1750.py
 235.50 Lux
 236.10 Lux
-234.80 Lux
+
+# sht40.py
+[2026-11-25 14:30:00] Temp=22.45°C, Temp=72.41°F, Humidity=45.12%
 ```
 
 ---
@@ -158,7 +180,7 @@ Expected output:
 ### 2. `i2cdetect` shows only dashes (`--`) and no addresses
 - **Wiring**: Check jumper wires connected to Pin 1 (3.3V), Pin 6 (GND), Pin 3 (SDA), and Pin 5 (SCL).
 - **Loose Connections**: Breadboard jump wires often have loose pins. Reseat all wires.
-- **Faulty Sensor**: Test with a secondary BH1750 breakout board if available.
+- **Faulty Sensor**: Test with a secondary BH1750 or SHT40 breakout board if available.
 
 ### 3. `Permission denied: '/dev/i2c-1'`
 - **Cause**: Current user does not belong to the `i2c` user group.

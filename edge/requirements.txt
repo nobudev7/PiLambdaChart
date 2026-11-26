@@ -4,6 +4,7 @@ boto3>=1.26.0
 
 # Hardware sensor libraries (required on a physical Raspberry Pi device)
 adafruit-circuitpython-dht>=3.7.0
+adafruit-circuitpython-sht4x>=1.0.0
 adafruit-circuitpython-bh1750>=1.0.0
 pyserial>=3.5
 c4002-python>=0.2.0

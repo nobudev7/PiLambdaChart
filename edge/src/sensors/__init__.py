@@ -1,4 +1,5 @@
 from sensors.dht_sensor import DhtSensor
+from sensors.sht40_sensor import Sht40Sensor
 from sensors.bh1750_sensor import Bh1750Sensor
 from sensors.pir_motion import PirMotionSensor
 from sensors.ultrasonic import UltrasonicSensor
@@ -8,6 +9,7 @@ from sensors.c4002_sensor import C4002Sensor
 SENSOR_REGISTRY = {
     "dht22": DhtSensor,
     "dht11": DhtSensor,
+    "sht40": Sht40Sensor,
     "bh1750": Bh1750Sensor,
     "pir_motion": PirMotionSensor,
     "ultrasonic": UltrasonicSensor,

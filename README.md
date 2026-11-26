@@ -49,7 +49,7 @@ To recreate and deploy this system from scratch, you will need the following har
 ### 1. Hardware Requirements
 *   **Edge Device**: One or more Raspberry Pi single-board computers (e.g. Raspberry Pi 3, 4, 5, or Pi Zero W) running Raspberry Pi OS (Debian Bullseye or Bookworm).
 *   **Sensors & Electronics**:
-    *   **Temperature & Humidity**: DHT22 or DHT11 GPIO sensor.
+    *   **Temperature & Humidity**: DHT22 / DHT11 GPIO sensor, or Sensirion SHT40 I2C sensor.
     *   **Ambient Light**: BH1750 I2C lux sensor.
     *   **Motion**: PIR Motion sensor.
     *   **Water / Fluid Level**: HC-SR04 ultrasonic distance sensor.
@@ -79,8 +79,8 @@ To recreate and deploy this system from scratch, you will need the following har
 Follow these steps to recreate and deploy the complete PiLambdaChart platform from scratch. Detailed configuration guides for each module are linked in their respective steps.
 
 ### Step 1: Set Up Raspberry Pi & Test Sensors Locally
-1. Wire physical sensors (DHT22, BH1750, PIR motion, HC-SR04, C4002 mmWave radar) to Raspberry Pi GPIO/I2C/UART pins.
-   - *Note: I2C is disabled by default on Raspberry Pi OS and **must be enabled** for the BH1750 light sensor (`sudo raspi-config nonint do_i2c 0`). See [`edge/I2C_SETUP.md`](edge/I2C_SETUP.md).*
+1. Wire physical sensors (DHT22, SHT40, BH1750, PIR motion, HC-SR04, C4002 mmWave radar) to Raspberry Pi GPIO/I2C/UART pins.
+   - *Note: I2C is disabled by default on Raspberry Pi OS and **must be enabled** for the BH1750 light sensor and SHT40 temperature/humidity sensor (`sudo raspi-config nonint do_i2c 0`). See [`edge/I2C_SETUP.md`](edge/I2C_SETUP.md).*
    - *Note: For the C4002 mmWave radar, the UART serial hardware interface must be **enabled** and the serial login shell **disabled** (`sudo raspi-config nonint do_serial_hw 0 && sudo raspi-config nonint do_serial_cons 1`).*
 2. Run standalone test scripts under [`edge/sensor_check/`](edge/sensor_check/) to verify sensor hardware functionality locally.
    - *Details: [`edge/README.md`](edge/README.md) and [`edge/I2C_SETUP.md`](edge/I2C_SETUP.md)*
@@ -137,7 +137,7 @@ Follow these steps to recreate and deploy the complete PiLambdaChart platform fr
 
 In a production environment, PiLambdaChart runs **Raspberry Pi** devices connected to hardware sensors:
 
-- **Temperature & Humidity**: DHT22 / DHT11 GPIO sensor
+- **Temperature & Humidity**: DHT22 / DHT11 GPIO sensor or Sensirion SHT40 I2C sensor
 - **Ambient Light**: BH1750 I2C lux sensor
 - **Motion Events**: PIR motion sensor (GPIO interrupt counting)
 - **Water / Fluid Level**: HC-SR04 ultrasonic distance sensor
